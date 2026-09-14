@@ -1,0 +1,39 @@
+# ==============================================================================
+# University Help Desk — Root .gitignore
+# ==============================================================================
+
+# ── Java / Maven Backend ──
+BackEnd/target/
+*.class
+*.jar
+*.war
+*.log
+
+# ── Node / React Frontend ──
+FrontEnd/node_modules/
+FrontEnd/dist/
+FrontEnd/.vite/
+FrontEnd/*.local
+
+# ── IDE & Editor Files ──
+.idea/
+*.iml
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.project
+.classpath
+.settings/
+
+# ── Operating System Junk ──
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# ── Environment & Secrets ──
+.env
+*.env.local

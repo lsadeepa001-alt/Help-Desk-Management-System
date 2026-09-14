@@ -1,0 +1,183 @@
+package com.university.helpdesk.controller;
+
+import com.university.helpdesk.model.Feedback;
+import com.university.helpdesk.model.Status;
+import com.university.helpdesk.model.Ticket;
+import com.university.helpdesk.model.User;
+import com.university.helpdesk.repository.FeedbackRepository;
+import com.university.helpdesk.repository.TicketRepository;
+import com.university.helpdesk.repository.UserRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("/feedback")
+@CrossOrigin(origins = "*")
+public class FeedbackController {
+
+    private final FeedbackRepository feedbackRepository;
+    private final TicketRepository ticketRepository;
+    private final UserRepository userRepository;
+
+    public FeedbackController(FeedbackRepository feedbackRepository,
+                              TicketRepository ticketRepository,
+                              UserRepository userRepository) {
+        this.feedbackRepository = feedbackRepository;
+        this.ticketRepository = ticketRepository;
+        this.userRepository = userRepository;
+    }
+
+    // ─── POST /api/feedback (Students, Lecturers, Admins) ───────────────────
+    @PostMapping
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<?> submitFeedback(@RequestBody Map<String, Object> body) {
+        // Required fields
+        Object ticketIdObj = body.get("ticketId");
+        Object userIdObj   = body.get("userId") != null ? body.get("userId") : body.get("submittedById");
+        Object ratingObj   = body.get("rating");
+
+        if (ticketIdObj == null || userIdObj == null || ratingObj == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "ticketId, userId/submittedById, and rating are required");
+        }
+
+        Long ticketId = Long.valueOf(ticketIdObj.toString());
+        Long userId   = Long.valueOf(userIdObj.toString());
+        int  rating   = Integer.parseInt(ratingObj.toString());
+
+        if (rating < 1 || rating > 5) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Rating must be between 1 and 5");
+        }
+
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
+
+        if (ticket.getStatus() != Status.RESOLVED && ticket.getStatus() != Status.CLOSED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Feedback can only be submitted for RESOLVED or CLOSED tickets");
+        }
+
+        User submitter = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // Prevent duplicate feedback from the same user on the same ticket
+        Optional<Feedback> existing = feedbackRepository.findByTicketIdAndSubmittedById(ticketId, userId);
+        if (existing.isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "You have already submitted feedback for this ticket");
+        }
+
+        Feedback feedback = new Feedback();
+        feedback.setTicket(ticket);
+        feedback.setSubmittedBy(submitter);
+        feedback.setRating(rating);
+        feedback.setComments((String) body.get("comments"));
+
+        Feedback saved = feedbackRepository.save(feedback);
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+    }
+
+    // ─── GET /api/feedback/ticket/{ticketId} ────────────────────────────────
+    @GetMapping("/ticket/{ticketId}")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<List<Feedback>> getFeedbackForTicket(@PathVariable Long ticketId) {
+        if (!ticketRepository.existsById(ticketId)) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(feedbackRepository.findByTicketId(ticketId));
+    }
+
+    // ─── GET /api/feedback/agent/{agentId}/summary (Agents, Managers, Admins) ─
+    @GetMapping("/agent/{agentId}/summary")
+    @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<Map<String, Object>> getAgentSummary(@PathVariable Long agentId) {
+        User agent = userRepository.findById(agentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Agent not found"));
+
+        List<Feedback> list = feedbackRepository.findByAgentId(agentId);
+        return ResponseEntity.ok(buildSummary(agent.getFullName(), agent.getRole().name(),
+                agent.getDepartment(), list));
+    }
+
+    // ─── GET /api/feedback/department/{department} (Managers & Admins) ────────
+    @GetMapping("/department/{department}")
+    @PreAuthorize("hasAnyRole('DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<Map<String, Object>> getDepartmentStats(@PathVariable String department) {
+        List<Feedback> list = feedbackRepository.findByDepartment(department);
+        return ResponseEntity.ok(buildSummary(department, "DEPARTMENT", department, list));
+    }
+
+    // ─── GET /api/feedback/all (Managers & Admins) ───────────────────────────
+    @GetMapping("/all")
+    @PreAuthorize("hasAnyRole('DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<List<Feedback>> getAllFeedback() {
+        return ResponseEntity.ok(feedbackRepository.findAll());
+    }
+
+    // ─── Helper: build summary map ──────────────────────────────────────────
+    private Map<String, Object> buildSummary(String name, String role,
+                                             String department, List<Feedback> list) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("name", name);
+        result.put("role", role);
+        result.put("department", department);
+        result.put("totalFeedback", list.size());
+        result.put("totalReviews", list.size());
+
+        if (list.isEmpty()) {
+            result.put("avgRating", 0.0);
+            result.put("averageRating", 0.0);
+            result.put("csatScore", 0.0);      // % ratings >= 4
+            result.put("ratingBreakdown", Map.of(1,0,2,0,3,0,4,0,5,0));
+            result.put("reviews", Collections.emptyList());
+            return result;
+        }
+
+        double avg = list.stream().mapToInt(Feedback::getRating).average().orElse(0.0);
+        long satisfied = list.stream().filter(f -> f.getRating() >= 4).count();
+        double csat = (satisfied * 100.0) / list.size();
+
+        // Rating breakdown 1–5
+        Map<Integer, Long> breakdown = list.stream()
+                .collect(Collectors.groupingBy(Feedback::getRating, Collectors.counting()));
+        Map<Integer, Long> fullBreakdown = new LinkedHashMap<>();
+        for (int i = 1; i <= 5; i++) fullBreakdown.put(i, breakdown.getOrDefault(i, 0L));
+
+        // Recent reviews (up to 20, newest first) – avoid serialising full Ticket graph
+        List<Map<String, Object>> reviews = list.stream()
+                .sorted(Comparator.comparing(f -> f.getCreatedAt() == null ? "" : f.getCreatedAt().toString(),
+                        Comparator.reverseOrder()))
+                .limit(20)
+                .map(f -> {
+                    Map<String, Object> r = new LinkedHashMap<>();
+                    r.put("id", f.getId());
+                    r.put("rating", f.getRating());
+                    r.put("comments", f.getComments());
+                    r.put("createdAt", f.getCreatedAt());
+                    r.put("submittedBy", Map.of(
+                            "id", f.getSubmittedBy().getId(),
+                            "fullName", f.getSubmittedBy().getFullName(),
+                            "role", f.getSubmittedBy().getRole().name()
+                    ));
+                    r.put("ticketNumber", f.getTicket().getTicketNumber());
+                    r.put("ticketTitle", f.getTicket().getTitle());
+                    return r;
+                })
+                .collect(Collectors.toList());
+
+        double roundedAvg = Math.round(avg * 10.0) / 10.0;
+        result.put("avgRating", roundedAvg);
+        result.put("averageRating", roundedAvg);
+        result.put("csatScore", Math.round(csat * 10.0) / 10.0);
+        result.put("ratingBreakdown", fullBreakdown);
+        result.put("reviews", reviews);
+        return result;
+    }
+}
