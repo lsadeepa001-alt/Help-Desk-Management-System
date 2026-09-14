@@ -9,6 +9,7 @@ const statusColors = {
   RESOLVED: 'bg-purple-500/20 text-purple-400 border border-purple-500/30',
   CLOSED: 'bg-slate-500/20 text-slate-400 border border-slate-500/30',
   REOPENED: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
+  CANCELLED: 'bg-rose-500/20 text-rose-400 border border-rose-500/30 line-through',
 };
 
 const priorityColors = {
@@ -85,7 +86,7 @@ const TicketList = ({ refreshTrigger, onViewTicket, filterUserId }) => {
           </svg>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].map(st => (
+          {['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED', 'CANCELLED'].map(st => (
             <button key={st} onClick={() => setFilterStatus(st)}
               className={`px-3 py-2 text-xs font-semibold rounded-lg transition whitespace-nowrap ${
                 filterStatus === st

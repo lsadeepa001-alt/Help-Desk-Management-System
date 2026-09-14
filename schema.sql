@@ -55,8 +55,8 @@ CREATE TABLE tickets (
     title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
     category_id BIGINT DEFAULT NULL,
-    priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') NOT NULL DEFAULT 'MEDIUM',
-    status ENUM('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED') NOT NULL DEFAULT 'OPEN',
+    priority VARCHAR(30) NOT NULL DEFAULT 'MEDIUM',
+    status VARCHAR(30) NOT NULL DEFAULT 'OPEN',
     created_by BIGINT NOT NULL,
     assigned_to BIGINT DEFAULT NULL,
     location VARCHAR(100) DEFAULT NULL, -- e.g., 'Computer Lab 03', 'Main Library Floor 2'

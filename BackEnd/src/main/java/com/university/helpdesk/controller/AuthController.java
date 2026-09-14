@@ -7,6 +7,7 @@ import com.university.helpdesk.model.Role;
 import com.university.helpdesk.model.User;
 import com.university.helpdesk.repository.UserRepository;
 import com.university.helpdesk.security.JwtUtils;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -45,7 +46,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@RequestBody RegisterRequest registerRequest) {
+    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
         if (registerRequest.getUsername() == null || registerRequest.getUsername().trim().isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("message", "Error: Username is required!"));
         }
@@ -59,6 +60,12 @@ public class AuthController {
         }
 
         Role userRole = registerRequest.getRole() != null ? registerRequest.getRole() : Role.STUDENT;
+
+        if (userRole != Role.STUDENT && userRole != Role.LECTURER) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "message", "Error: Only Student and Lecturer accounts can be created via public registration."
+            ));
+        }
 
         User user = new User();
         user.setUsername(registerRequest.getUsername());

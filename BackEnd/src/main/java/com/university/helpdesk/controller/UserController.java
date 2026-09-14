@@ -104,6 +104,30 @@ public class UserController {
         }
     }
 
+    // ─── UPDATE USER STATUS (Administrator only) ──────────────────────────────
+    @PutMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<?> updateUserStatus(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        String newStatus;
+        if (body != null && body.containsKey("status") && !body.get("status").isBlank()) {
+            newStatus = body.get("status").trim().toUpperCase();
+        } else {
+            // Toggle between ACTIVE and SUSPENDED
+            newStatus = "ACTIVE".equalsIgnoreCase(user.getStatus()) ? "SUSPENDED" : "ACTIVE";
+        }
+
+        if (!"ACTIVE".equals(newStatus) && !"SUSPENDED".equals(newStatus) && !"INACTIVE".equals(newStatus)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid status: " + newStatus);
+        }
+
+        user.setStatus(newStatus);
+        User updated = userRepository.save(user);
+        return ResponseEntity.ok(updated);
+    }
+
     // ─── DELETE USER (Administrator only) ─────────────────────────────────────
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMINISTRATOR')")

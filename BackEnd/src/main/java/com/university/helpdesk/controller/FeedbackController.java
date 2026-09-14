@@ -10,9 +10,11 @@ import com.university.helpdesk.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -82,6 +84,74 @@ public class FeedbackController {
 
         Feedback saved = feedbackRepository.save(feedback);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+    }
+
+    // ─── PUT /api/feedback/{id} (Update within 24h window) ───────────────────
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<?> updateFeedback(@PathVariable Long id,
+                                            @RequestBody Map<String, Object> body,
+                                            Authentication auth) {
+        Feedback feedback = feedbackRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Feedback not found"));
+
+        User currentUser = userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
+
+        // IDOR check: must be the user who submitted feedback (or Admin)
+        if (!isAdmin && (feedback.getSubmittedBy() == null || !feedback.getSubmittedBy().getId().equals(currentUser.getId()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You can only edit your own feedback");
+        }
+
+        // 24-hour time window check
+        if (!isAdmin && feedback.getCreatedAt() != null && feedback.getCreatedAt().isBefore(LocalDateTime.now().minusHours(24))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Feedback can only be edited within 24 hours of submission");
+        }
+
+        if (body.containsKey("rating") && body.get("rating") != null) {
+            int rating = Integer.parseInt(body.get("rating").toString());
+            if (rating < 1 || rating > 5) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rating must be between 1 and 5");
+            }
+            feedback.setRating(rating);
+        }
+
+        if (body.containsKey("comments")) {
+            feedback.setComments((String) body.get("comments"));
+        }
+
+        Feedback saved = feedbackRepository.save(feedback);
+        return ResponseEntity.ok(saved);
+    }
+
+    // ─── DELETE /api/feedback/{id} (Withdraw within 24h window) ──────────────
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<?> deleteFeedback(@PathVariable Long id, Authentication auth) {
+        Feedback feedback = feedbackRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Feedback not found"));
+
+        User currentUser = userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
+
+        // IDOR check: must be the user who submitted feedback (or Admin)
+        if (!isAdmin && (feedback.getSubmittedBy() == null || !feedback.getSubmittedBy().getId().equals(currentUser.getId()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You can only withdraw your own feedback");
+        }
+
+        // 24-hour time window check
+        if (!isAdmin && feedback.getCreatedAt() != null && feedback.getCreatedAt().isBefore(LocalDateTime.now().minusHours(24))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Feedback can only be withdrawn within 24 hours of submission");
+        }
+
+        feedbackRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 
     // ─── GET /api/feedback/ticket/{ticketId} ────────────────────────────────

@@ -125,6 +125,175 @@ public class TicketController {
         return ResponseEntity.status(HttpStatus.CREATED).body(savedTicket);
     }
 
+    // ─── EDIT TICKET (Creator only, while status is OPEN) ────────────────────
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<Ticket> updateTicket(@PathVariable Long id,
+                                               @RequestBody Map<String, Object> body,
+                                               Authentication auth) {
+        Ticket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
+
+        User currentUser = userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
+
+        // IDOR check: must be ticket creator (or Admin)
+        if (!isAdmin && (ticket.getCreatedBy() == null || !ticket.getCreatedBy().getId().equals(currentUser.getId()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You can only edit your own tickets");
+        }
+
+        // Status check: must be OPEN
+        if (ticket.getStatus() != Status.OPEN) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot edit ticket once processing has begun");
+        }
+
+        if (body.containsKey("title") && body.get("title") != null) {
+            String title = body.get("title").toString().trim();
+            if (!title.isEmpty()) ticket.setTitle(title);
+        }
+        if (body.containsKey("description") && body.get("description") != null) {
+            String desc = body.get("description").toString().trim();
+            if (!desc.isEmpty()) ticket.setDescription(desc);
+        }
+        if (body.containsKey("priority") && body.get("priority") != null) {
+            try {
+                ticket.setPriority(Priority.valueOf(body.get("priority").toString().toUpperCase()));
+            } catch (IllegalArgumentException ignored) {}
+        }
+        if (body.containsKey("location") && body.get("location") != null) {
+            ticket.setLocation(body.get("location").toString().trim());
+        }
+        if (body.containsKey("department") && body.get("department") != null) {
+            ticket.setDepartment(body.get("department").toString().trim());
+        }
+        if (body.containsKey("categoryId") && body.get("categoryId") != null) {
+            Long catId = Long.valueOf(body.get("categoryId").toString());
+            categoryRepository.findById(catId).ifPresent(ticket::setCategory);
+        }
+
+        Ticket saved = ticketRepository.save(ticket);
+        return ResponseEntity.ok(saved);
+    }
+
+    // ─── CANCEL / DELETE TICKET (Creator soft-cancels if OPEN, Admin hard-deletes) ──
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<?> deleteOrCancelTicket(@PathVariable Long id, Authentication auth) {
+        Ticket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
+
+        User currentUser = userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
+
+        if (isAdmin) {
+            ticketRepository.deleteById(id);
+            return ResponseEntity.noContent().build();
+        }
+
+        // Creator soft-cancellation
+        if (ticket.getCreatedBy() == null || !ticket.getCreatedBy().getId().equals(currentUser.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You can only cancel your own tickets");
+        }
+
+        if (ticket.getStatus() != Status.OPEN) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot cancel ticket once processing has begun");
+        }
+
+        ticket.setStatus(Status.CANCELLED);
+        Ticket saved = ticketRepository.save(ticket);
+        return ResponseEntity.ok(saved);
+    }
+
+    // ─── CONFIRM RESOLUTION (Ticket Creator confirms resolution -> CLOSED) ───
+    @PutMapping("/{id}/confirm")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<Ticket> confirmResolution(@PathVariable Long id, Authentication auth) {
+        Ticket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
+
+        User currentUser = userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
+
+        // IDOR check: must be ticket creator or Admin
+        if (!isAdmin && (ticket.getCreatedBy() == null || !ticket.getCreatedBy().getId().equals(currentUser.getId()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Only the ticket creator can confirm resolution");
+        }
+
+        if (ticket.getStatus() != Status.RESOLVED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only RESOLVED tickets can be confirmed as closed");
+        }
+
+        ticket.setStatus(Status.CLOSED);
+        Ticket updated = ticketRepository.save(ticket);
+
+        try {
+            notificationService.notifyStatusUpdated(updated, Status.RESOLVED, Status.CLOSED);
+        } catch (Exception e) {
+            System.err.println("Notification trigger failed: " + e.getMessage());
+        }
+
+        return ResponseEntity.ok(updated);
+    }
+
+    // ─── REOPEN TICKET (Ticket Creator reopens -> REOPENED with reason) ───────
+    @PutMapping("/{id}/reopen")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<Ticket> reopenTicket(@PathVariable Long id,
+                                               @RequestBody(required = false) Map<String, String> body,
+                                               Authentication auth) {
+        Ticket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
+
+        User currentUser = userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
+
+        // IDOR check: must be ticket creator or Admin
+        if (!isAdmin && (ticket.getCreatedBy() == null || !ticket.getCreatedBy().getId().equals(currentUser.getId()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Only the ticket creator can reopen this ticket");
+        }
+
+        if (ticket.getStatus() != Status.RESOLVED && ticket.getStatus() != Status.CLOSED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only RESOLVED or CLOSED tickets can be reopened");
+        }
+
+        Status oldStatus = ticket.getStatus();
+        ticket.setStatus(Status.REOPENED);
+        ticket.setResolvedAt(null);
+
+        // Add reason as comment if provided
+        String reason = body != null ? body.get("reason") : null;
+        if (reason != null && !reason.isBlank()) {
+            TicketComment comment = new TicketComment();
+            comment.setTicket(ticket);
+            comment.setAuthor(currentUser);
+            comment.setContent("Ticket Reopened: " + reason.trim());
+            comment.setInternal(false);
+            commentRepository.save(comment);
+        }
+
+        Ticket updated = ticketRepository.save(ticket);
+
+        try {
+            notificationService.notifyStatusUpdated(updated, oldStatus, Status.REOPENED);
+        } catch (Exception e) {
+            System.err.println("Notification trigger failed: " + e.getMessage());
+        }
+
+        return ResponseEntity.ok(updated);
+    }
+
     // ─── UPDATE STATUS (Agents, Managers, Admins) ─────────────────────────────
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")

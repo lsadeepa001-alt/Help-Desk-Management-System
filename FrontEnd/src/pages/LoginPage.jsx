@@ -2,15 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth, getLandingPath } from '../context/AuthContext';
 
-// ── Quick Demo Accounts ──
-const DEMO_ACCOUNTS = [
-  { label: 'Student',       icon: '🎓', email: 'student@sliit.lk',  password: 'pass123', color: 'indigo' },
-  { label: 'Support Agent', icon: '🛠️', email: 'agent@sliit.lk',    password: 'pass123', color: 'blue' },
-  { label: 'Supervisor',    icon: '👔', email: 'lead@sliit.lk',     password: 'pass123', color: 'amber' },
-  { label: 'Admin',         icon: '👑', email: 'admin@sliit.lk',    password: 'pass123', color: 'rose' },
-  { label: 'Executive',     icon: '📊', email: 'director@sliit.lk', password: 'pass123', color: 'emerald' },
-];
-
 const LoginPage = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -47,11 +38,6 @@ const LoginPage = () => {
     } else {
       setError(result.error);
     }
-  };
-
-  const fillDemo = (email, password) => {
-    setFormData({ usernameOrEmail: email, password });
-    setError('');
   };
 
   return (
@@ -157,37 +143,14 @@ const LoginPage = () => {
               )}
             </button>
 
-            {/* Register CTA — between Sign In and Demo Logins */}
-            <p className="text-center text-xs text-slate-400 pt-1">
+            {/* Register CTA — below Sign In */}
+            <p className="text-center text-xs text-slate-400 pt-2">
               Don't have an account?{' '}
               <Link to="/register" className="text-indigo-400 font-semibold hover:text-indigo-300 hover:underline transition">
                 Register here
               </Link>
             </p>
           </form>
-
-          {/* Quick Demo Logins */}
-          <div className="pt-4 border-t border-slate-700/60 space-y-3">
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">
-              Quick Demo Logins
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.label}
-                  type="button"
-                  onClick={() => fillDemo(acc.email, acc.password)}
-                  className="px-3 py-2 bg-slate-900/80 hover:bg-slate-700/80 text-slate-300 text-[11px] rounded-xl border border-slate-700/50 transition text-left flex items-center gap-2 group"
-                >
-                  <span className="text-base">{acc.icon}</span>
-                  <div>
-                    <div className="font-semibold group-hover:text-white transition">{acc.label}</div>
-                    <div className="text-[10px] text-slate-500">{acc.email}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Footer */}

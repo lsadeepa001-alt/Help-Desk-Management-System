@@ -29,7 +29,7 @@ public class Ticket {
     private Priority priority = Priority.MEDIUM;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "status", length = 30, nullable = false)
     private Status status = Status.OPEN;
 
     @ManyToOne

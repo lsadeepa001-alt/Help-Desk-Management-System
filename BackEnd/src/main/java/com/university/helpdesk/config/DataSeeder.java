@@ -41,8 +41,8 @@ public class DataSeeder implements CommandLineRunner {
         // 1. Admin account
         User admin = new User();
         admin.setUsername("admin");
-        admin.setPassword(passwordEncoder.encode("admin123"));
-        admin.setEmail("admin@university.edu");
+        admin.setPassword(passwordEncoder.encode("Admin@123"));
+        admin.setEmail("admin@sliit.lk");
         admin.setFullName("System Administrator");
         admin.setRole(Role.ADMIN);
         admin.setDepartment("IT Administration");
@@ -53,8 +53,8 @@ public class DataSeeder implements CommandLineRunner {
         // 2. Support Agent account
         User agent = new User();
         agent.setUsername("agent");
-        agent.setPassword(passwordEncoder.encode("agent123"));
-        agent.setEmail("agent@university.edu");
+        agent.setPassword(passwordEncoder.encode("Agent@123"));
+        agent.setEmail("agent@sliit.lk");
         agent.setFullName("IT Support Agent");
         agent.setRole(Role.SUPPORT_AGENT);
         agent.setDepartment("IT Services");
@@ -65,15 +65,39 @@ public class DataSeeder implements CommandLineRunner {
         // 3. Student account
         User student = new User();
         student.setUsername("student");
-        student.setPassword(passwordEncoder.encode("student123"));
-        student.setEmail("student@university.edu");
+        student.setPassword(passwordEncoder.encode("Student@123"));
+        student.setEmail("student@sliit.lk");
         student.setFullName("Kasun Perera");
         student.setRole(Role.STUDENT);
-        student.setDepartment("Computer Science");
+        student.setDepartment("Computing");
         student.setPhoneNumber("0770000003");
         student.setStatus("ACTIVE");
         userRepository.save(student);
 
-        System.out.println("✅ Default accounts seeded successfully (admin, agent, student).");
+        // 4. Lecturer account
+        User lecturer = new User();
+        lecturer.setUsername("lecturer");
+        lecturer.setPassword(passwordEncoder.encode("Lecturer@123"));
+        lecturer.setEmail("lecturer@sliit.lk");
+        lecturer.setFullName("Dr. Nimal Silva");
+        lecturer.setRole(Role.LECTURER);
+        lecturer.setDepartment("Engineering");
+        lecturer.setPhoneNumber("0770000004");
+        lecturer.setStatus("ACTIVE");
+        userRepository.save(lecturer);
+
+        // 5. Department Manager account
+        User manager = new User();
+        manager.setUsername("manager");
+        manager.setPassword(passwordEncoder.encode("Manager@123"));
+        manager.setEmail("manager@sliit.lk");
+        manager.setFullName("David Davis (Dept Manager)");
+        manager.setRole(Role.DEPARTMENT_MANAGER);
+        manager.setDepartment("IT Services");
+        manager.setPhoneNumber("0770000005");
+        manager.setStatus("ACTIVE");
+        userRepository.save(manager);
+
+        System.out.println("✅ Default accounts seeded successfully (admin, agent, student, lecturer, manager).");
     }
 }

@@ -31,10 +31,11 @@ const ratingLabels = {
   5: '🤩 Very Satisfied',
 };
 
-export default function CSATModal({ ticket, userId, onClose, onSubmitted }) {
-  const [rating, setRating] = useState(0);
+export default function CSATModal({ ticket, userId, onClose, onSubmitted, existingFeedback = null, mode = 'create' }) {
+  const isEdit = mode === 'edit' && !!existingFeedback;
+  const [rating, setRating] = useState(existingFeedback?.rating || 0);
   const [hovered, setHovered] = useState(0);
-  const [comments, setComments] = useState('');
+  const [comments, setComments] = useState(existingFeedback?.comments || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -45,17 +46,25 @@ export default function CSATModal({ ticket, userId, onClose, onSubmitted }) {
     setSubmitting(true);
     setError('');
     try {
-      await axios.post(`${API}/feedback`, {
-        ticketId: ticket.id,
-        userId,
-        rating,
-        comments: comments.trim() || null,
-      });
-      if (onSubmitted) onSubmitted(rating);
+      let res;
+      if (isEdit) {
+        res = await axios.put(`${API}/feedback/${existingFeedback.id}`, {
+          rating,
+          comments: comments.trim() || null,
+        });
+      } else {
+        res = await axios.post(`${API}/feedback`, {
+          ticketId: ticket.id,
+          userId,
+          rating,
+          comments: comments.trim() || null,
+        });
+      }
+      if (onSubmitted) onSubmitted(rating, res.data);
       onClose();
     } catch (err) {
       const msg = err.response?.data?.message || err.response?.data || 'Submission failed.';
-      setError(typeof msg === 'string' ? msg : 'Submission failed. You may have already rated this ticket.');
+      setError(typeof msg === 'string' ? msg : 'Submission failed. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -77,10 +86,12 @@ export default function CSATModal({ ticket, userId, onClose, onSubmitted }) {
             </svg>
           </button>
           <div className="text-3xl mb-2">⭐</div>
-          <h2 className="text-xl font-extrabold text-white tracking-tight">How was your experience?</h2>
+          <h2 className="text-xl font-extrabold text-white tracking-tight">
+            {isEdit ? 'Update Your Rating' : 'How was your experience?'}
+          </h2>
           <p className="text-slate-300 text-sm mt-1">
             Ticket <span className="text-indigo-300 font-mono font-bold">{ticket.ticketNumber}</span> has been resolved.
-            Share your feedback to help us improve.
+            {isEdit ? ' Update your feedback and rating below.' : ' Share your feedback to help us improve.'}
           </p>
         </div>
 
@@ -127,7 +138,7 @@ export default function CSATModal({ ticket, userId, onClose, onSubmitted }) {
           <div className="flex gap-3">
             <button type="button" onClick={onClose}
               className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl border border-slate-700 transition">
-              Skip for Now
+              {isEdit ? 'Cancel' : 'Skip for Now'}
             </button>
             <button type="submit" disabled={submitting || rating === 0}
               className="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-40 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2">
@@ -136,7 +147,7 @@ export default function CSATModal({ ticket, userId, onClose, onSubmitted }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                     d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                 </svg>
-              ) : '⭐'} Submit Feedback
+              ) : '⭐'} {isEdit ? 'Update Feedback' : 'Submit Feedback'}
             </button>
           </div>
         </form>

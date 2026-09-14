@@ -9,9 +9,10 @@ import { ProtectedRoute, RoleBasedRoute, GuestOnlyRoute } from './components/Pro
 import Navbar from './components/Navbar';
 import AiChatbotModal from './components/AiChatbotModal';
 
-// ── Pages (auth) ──
+// ── Pages (auth & core) ──
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import Dashboard from './pages/Dashboard';
 
 // ── Feature Components ──
 import TicketList from './components/TicketList';
@@ -77,6 +78,13 @@ function AppShell() {
         <Routes>
           {/* ── Public → Redirect to login ── */}
           <Route path="/" element={<RootRedirect />} />
+
+          {/* ── Unified Role-Adaptive Dashboard ── */}
+          <Route path="/home" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
 
           {/* ── All Tickets (Staff, Managers, Admins only) ── */}
           <Route path="/tickets" element={
@@ -211,7 +219,7 @@ function RootRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  return <Navigate to={getLandingPath()} replace />;
+  return <Navigate to="/home" replace />;
 }
 
 // ── My Tickets view for logged-in users ──
@@ -254,6 +262,18 @@ function AdminUsersView() {
   const [search, setSearch] = useState('');
   const [updatingId, setUpdatingId] = useState(null);
 
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createFormData, setCreateFormData] = useState({
+    fullName: '',
+    username: '',
+    email: '',
+    password: '',
+    role: 'SUPPORT_AGENT',
+    department: '',
+    phoneNumber: '',
+  });
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
@@ -283,6 +303,16 @@ function AdminUsersView() {
     }
   };
 
+  const handleToggleStatus = async (userId) => {
+    try {
+      const res = await axios.put(`${API_BASE}/users/${userId}/status`);
+      showToast(`User status updated to ${res.data.status}`, 'success');
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: res.data.status } : u));
+    } catch (err) {
+      showToast('Failed to update status: ' + (err.response?.data?.message || err.message), 'error');
+    }
+  };
+
   const handleDeleteUser = async (userId) => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
     try {
@@ -291,6 +321,30 @@ function AdminUsersView() {
       setUsers(prev => prev.filter(u => u.id !== userId));
     } catch (err) {
       showToast('Failed to delete user: ' + (err.response?.data?.message || err.message), 'error');
+    }
+  };
+
+  const handleCreateStaff = async (e) => {
+    e.preventDefault();
+    setCreateLoading(true);
+    try {
+      const res = await axios.post(`${API_BASE}/users`, createFormData);
+      showToast('Staff account created successfully!', 'success');
+      setUsers(prev => [...prev, res.data]);
+      setShowCreateModal(false);
+      setCreateFormData({
+        fullName: '',
+        username: '',
+        email: '',
+        password: '',
+        role: 'SUPPORT_AGENT',
+        department: '',
+        phoneNumber: '',
+      });
+    } catch (err) {
+      showToast('Failed to create staff: ' + (err.response?.data?.message || err.message), 'error');
+    } finally {
+      setCreateLoading(false);
     }
   };
 
@@ -312,7 +366,7 @@ function AdminUsersView() {
           </span>
           <h2 className="text-3xl font-extrabold text-white tracking-tight">Users & Role Management</h2>
           <p className="text-slate-300 text-sm mt-2 leading-relaxed">
-            Manage system users, assign roles across the 5 university tiers, and inspect permissions.
+            Manage system users, assign roles across the university tiers, provision staff, and toggle account suspension.
           </p>
         </div>
         <div className="absolute right-4 bottom-0 opacity-10 text-9xl pointer-events-none select-none">👑</div>
@@ -320,10 +374,16 @@ function AdminUsersView() {
 
       {/* Controls Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-800/80 p-5 rounded-2xl border border-slate-700/60 shadow-xl backdrop-blur-md">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="text-sm font-semibold text-slate-300">
             Total Users: <span className="text-indigo-400 font-bold">{users.length}</span>
           </span>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition flex items-center gap-1.5"
+          >
+            ➕ Create Staff Member
+          </button>
         </div>
         <input
           type="text"
@@ -349,6 +409,7 @@ function AdminUsersView() {
                   <th className="px-6 py-4">Email</th>
                   <th className="px-6 py-4">Department</th>
                   <th className="px-6 py-4">Role</th>
+                  <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -376,6 +437,25 @@ function AdminUsersView() {
                         <option value="SYSTEM_ADMINISTRATOR">👑 SYSTEM_ADMINISTRATOR</option>
                       </select>
                     </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          (u.status || 'ACTIVE') === 'ACTIVE'
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                            : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                        }`}>
+                          {u.status || 'ACTIVE'}
+                        </span>
+                        {u.id !== user?.id && (
+                          <button
+                            onClick={() => handleToggleStatus(u.id)}
+                            className="text-[10px] text-slate-400 hover:text-white px-2 py-0.5 rounded border border-slate-700 hover:border-slate-500 transition"
+                          >
+                            {(u.status || 'ACTIVE') === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-right">
                       {u.id !== user?.id && (
                         <button
@@ -394,6 +474,147 @@ function AdminUsersView() {
           </div>
         )}
       </div>
+
+      {/* ── Create Staff Member Modal ── */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <span>➕ Create Privileged Staff Member</span>
+              </h3>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateStaff} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={createFormData.fullName}
+                    onChange={e => setCreateFormData(prev => ({ ...prev, fullName: e.target.value }))}
+                    placeholder="e.g. John Doe"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Username *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={createFormData.username}
+                    onChange={e => setCreateFormData(prev => ({ ...prev, username: e.target.value }))}
+                    placeholder="e.g. jdoe_tech"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    University Email *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={createFormData.email}
+                    onChange={e => setCreateFormData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="staff@sliit.lk"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Password *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={createFormData.password}
+                    onChange={e => setCreateFormData(prev => ({ ...prev, password: e.target.value }))}
+                    placeholder="Min 8 chars"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    System Role *
+                  </label>
+                  <select
+                    value={createFormData.role}
+                    onChange={e => setCreateFormData(prev => ({ ...prev, role: e.target.value }))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  >
+                    <option value="SUPPORT_AGENT">🛠️ SUPPORT_AGENT</option>
+                    <option value="DEPARTMENT_MANAGER">👔 DEPARTMENT_MANAGER</option>
+                    <option value="LECTURER">👨‍🏫 LECTURER</option>
+                    <option value="STUDENT">🎓 STUDENT</option>
+                    <option value="ADMIN">👑 ADMIN</option>
+                    <option value="SYSTEM_ADMINISTRATOR">👑 SYSTEM_ADMINISTRATOR</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Department
+                  </label>
+                  <input
+                    type="text"
+                    value={createFormData.department}
+                    onChange={e => setCreateFormData(prev => ({ ...prev, department: e.target.value }))}
+                    placeholder="e.g. IT Services"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={createFormData.phoneNumber}
+                  onChange={e => setCreateFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                  placeholder="+94-77-123-4567"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createLoading}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition shadow-lg shadow-indigo-500/20"
+                >
+                  {createLoading ? 'Creating Staff...' : 'Create Account'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

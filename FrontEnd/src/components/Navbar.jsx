@@ -25,7 +25,9 @@ const roleDisplayName = (user) => {
 
 // ── Navigation Items per role ──
 const getNavItems = (frontendRole) => {
-  const items = [];
+  const items = [
+    { to: '/home', label: 'Dashboard', icon: '🏠' },
+  ];
 
   // END_USER (Student / Lecturer)
   if (frontendRole === ROLES.END_USER) {
@@ -111,7 +113,7 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
 
         {/* Brand */}
-        <NavLink to={isAuthenticated ? navItems[0]?.to || '/' : '/login'} className="flex items-center gap-3 flex-shrink-0">
+        <NavLink to={isAuthenticated ? '/home' : '/login'} className="flex items-center gap-3 flex-shrink-0">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-xl shadow-lg shadow-indigo-500/20">
             🎓
           </div>

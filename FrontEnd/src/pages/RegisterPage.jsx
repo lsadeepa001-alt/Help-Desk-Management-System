@@ -105,6 +105,15 @@ const RegisterPage = () => {
     if (success) setSuccess('');
   };
 
+  const passwordRules = [
+    { label: 'At least 8 characters', met: formData.password.length >= 8 },
+    { label: 'One uppercase letter (A-Z)', met: /[A-Z]/.test(formData.password) },
+    { label: 'One lowercase letter (a-z)', met: /[a-z]/.test(formData.password) },
+    { label: 'One number (0-9)', met: /\d/.test(formData.password) },
+    { label: 'One special character (@$!%*?&#^()_-)', met: /[@$!%*?&#^()_\-]/.test(formData.password) },
+  ];
+  const isPasswordStrong = passwordRules.every((r) => r.met);
+
   const validate = () => {
     if (!formData.fullName.trim() || !formData.email.trim() || !formData.password.trim()) {
       return 'Please fill in all required fields (Full Name, Email, Password).';
@@ -112,14 +121,17 @@ const RegisterPage = () => {
     if (!formData.username.trim()) {
       return 'Please choose a username.';
     }
-    if (formData.password.length < 6) {
-      return 'Password must be at least 6 characters long.';
+    if (!isPasswordStrong) {
+      return 'Password does not satisfy the security policy. Please ensure all password requirements are satisfied.';
     }
     if (formData.password !== formData.confirmPassword) {
       return 'Passwords do not match. Please re-enter your password.';
     }
     if (!formData.email.includes('@')) {
       return 'Please enter a valid email address.';
+    }
+    if (formData.role !== 'STUDENT' && formData.role !== 'LECTURER') {
+      return 'Invalid account type selected. Only Student and Lecturer accounts can be created.';
     }
     return null;
   };
@@ -298,7 +310,7 @@ const RegisterPage = () => {
                 type="password"
                 value={formData.password}
                 onChange={handleChange}
-                placeholder="Min 6 characters"
+                placeholder="Min 8 characters"
                 icon={LockIcon}
                 required
                 autoComplete="new-password"
@@ -316,6 +328,30 @@ const RegisterPage = () => {
               />
             </div>
 
+            {/* Password Security Checklist */}
+            {formData.password && (
+              <div className="bg-slate-900/80 border border-slate-700/60 rounded-xl p-3.5 space-y-1.5 animate-in fade-in duration-200">
+                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <span>Password Security Requirements</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    isPasswordStrong ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                  }`}>
+                    {isPasswordStrong ? '✓ Strong Password' : 'Incomplete'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+                  {passwordRules.map((rule, idx) => (
+                    <div key={idx} className={`flex items-center gap-1.5 transition-colors ${
+                      rule.met ? 'text-emerald-400' : 'text-slate-500'
+                    }`}>
+                      <span className="text-xs font-bold">{rule.met ? '✓' : '○'}</span>
+                      <span className="text-[11px]">{rule.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Row 5: Role Selection */}
             <div>
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
@@ -323,8 +359,8 @@ const RegisterPage = () => {
               </label>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { value: 'STUDENT', label: 'Student / Staff', icon: '🎓', desc: 'Submit & track tickets' },
-                  { value: 'SUPPORT_AGENT', label: 'Support Agent', icon: '🛠️', desc: 'Resolve & manage tickets' },
+                  { value: 'STUDENT', label: 'Student', icon: '🎓', desc: 'Submit & track tickets' },
+                  { value: 'LECTURER', label: 'Lecturer', icon: '👨‍🏫', desc: 'Submit tickets & faculty requests' },
                 ].map((option) => (
                   <button
                     key={option.value}
@@ -358,7 +394,7 @@ const RegisterPage = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || !!success}
+              disabled={loading || !!success || !isPasswordStrong}
               className="w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
             >
               {loading ? (
