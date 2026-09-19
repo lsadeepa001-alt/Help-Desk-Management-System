@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth, ROLES } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
 const API = 'http://localhost:8080/api';
 
@@ -21,7 +21,7 @@ export default function Dashboard() {
   const [tickets, setTickets] = useState([]);
   const [kbArticles, setKbArticles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ total: 0, open: 0, inProgress: 0, resolved: 0, closed: 0, csatScore: 0 });
+  const [stats, setStats] = useState({ total: 0, open: 0, inProgress: 0, resolved: 0, closed: 0, avgCsatRating: 0 });
 
   const role = user?.role || 'STUDENT';
   const isEndUser = role === 'STUDENT' || role === 'LECTURER';
@@ -67,17 +67,18 @@ export default function Dashboard() {
             inProgress: d.inProgressTickets || 0,
             resolved: d.resolvedTickets || 0,
             closed: 0,
-            csatScore: d.csatScore || 0,
+            avgCsatRating: d.avgCsatRating || 0,
           });
         } else if (isKm) {
           const res = await axios.get(`${API}/kb/articles`);
           const data = Array.isArray(res.data) ? res.data : [];
+          const totalViews = data.reduce((sum, article) => sum + (Number(article.viewCount) || 0), 0);
           setKbArticles(data);
           setStats({
             total: data.length,
-            open: data.filter(a => a.published).length,
-            inProgress: data.filter(a => !a.published).length,
-            resolved: 0,
+            open: data.filter((article) => article.isFaq).length,
+            inProgress: totalViews,
+            resolved: data.length > 0 ? Math.round(totalViews / data.length) : 0,
             closed: 0,
           });
         }
@@ -89,7 +90,7 @@ export default function Dashboard() {
     };
 
     loadDashboardData();
-  }, [role]);
+  }, [isEndUser, isStaff, isManager, isKm]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -127,9 +128,9 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {isKm ? [
           { label: 'Total Articles', value: stats.total, color: 'text-indigo-400', bg: 'bg-slate-800/80' },
-          { label: 'Published', value: stats.open, color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/30' },
-          { label: 'Drafts / Unpublished', value: stats.inProgress, color: 'text-amber-400', bg: 'bg-amber-950/20 border-amber-800/30' },
-          { label: 'Knowledge Base Ready', value: '100%', color: 'text-purple-400', bg: 'bg-purple-950/20 border-purple-800/30' },
+          { label: 'FAQ Articles', value: stats.open, color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/30' },
+          { label: 'Total Views', value: stats.inProgress, color: 'text-amber-400', bg: 'bg-amber-950/20 border-amber-800/30' },
+          { label: 'Average Views', value: stats.resolved, color: 'text-purple-400', bg: 'bg-purple-950/20 border-purple-800/30' },
         ].map((item, idx) => (
           <div key={idx} className={`${item.bg} border border-slate-700/60 rounded-2xl p-5 shadow-lg text-center backdrop-blur-md`}>
             <div className={`text-3xl font-extrabold ${item.color}`}>{loading ? '—' : item.value}</div>
@@ -139,7 +140,7 @@ export default function Dashboard() {
           { label: isEndUser ? 'My Tickets' : 'Total Tickets', value: stats.total, color: 'text-indigo-400', bg: 'bg-slate-800/80' },
           { label: 'Open Issues', value: stats.open, color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/30' },
           { label: 'In Progress', value: stats.inProgress, color: 'text-blue-400', bg: 'bg-blue-950/20 border-blue-800/30' },
-          { label: isManager ? 'CSAT Rating' : 'Resolved / Closed', value: isManager ? (stats.csatScore > 0 ? `${stats.csatScore} / 5` : 'N/A') : (stats.resolved + stats.closed), color: 'text-purple-400', bg: 'bg-purple-950/20 border-purple-800/30' },
+          { label: isManager ? 'CSAT Rating' : 'Resolved / Closed', value: isManager ? (stats.avgCsatRating > 0 ? `${stats.avgCsatRating} / 5` : 'N/A') : (stats.resolved + stats.closed), color: 'text-purple-400', bg: 'bg-purple-950/20 border-purple-800/30' },
         ].map((item, idx) => (
           <div key={idx} className={`${item.bg} border border-slate-700/60 rounded-2xl p-5 shadow-lg text-center backdrop-blur-md`}>
             <div className={`text-3xl font-extrabold ${item.color}`}>{loading ? '—' : item.value}</div>
@@ -294,7 +295,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-white">Knowledge Base Articles</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Published self-help articles and guides</p>
+              <p className="text-xs text-slate-400 mt-0.5">Self-help articles and guides</p>
             </div>
             <Link
               to="/knowledge-base/manage"
@@ -306,7 +307,7 @@ export default function Dashboard() {
           {loading ? (
             <div className="py-12 text-center text-slate-400 text-sm">Loading articles...</div>
           ) : kbArticles.length === 0 ? (
-            <div className="py-12 text-center text-slate-500 text-sm">No articles published yet.</div>
+            <div className="py-12 text-center text-slate-500 text-sm">No articles available yet.</div>
           ) : (
             <div className="divide-y divide-slate-700/50">
               {kbArticles.slice(0, 5).map((a) => (
@@ -322,7 +323,7 @@ export default function Dashboard() {
                     <p className="text-xs text-slate-400 truncate">{a.category || 'General'}</p>
                   </div>
                   <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    Published
+                    {a.isFaq ? 'FAQ' : 'Article'}
                   </span>
                 </div>
               ))}

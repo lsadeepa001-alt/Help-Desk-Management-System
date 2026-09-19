@@ -19,6 +19,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -273,5 +275,117 @@ public class RoleAccessAndAttachmentSecurityTest {
         mockMvc.perform(get("/tickets/" + testTicket.getId() + "/attachments/" + testAttachment.getId() + "/download"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("network_report.pdf")));
+    }
+
+    @Test
+    @DisplayName("Knowledge base articles expose the existing FAQ flag as isFaq")
+    void knowledgeBaseArticleUsesIsFaqResponseField() throws Exception {
+        KnowledgeBaseArticle article = new KnowledgeBaseArticle();
+        article.setFaq(true);
+
+        String json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(article);
+
+        assertTrue(json.contains("\"isFaq\":true"));
+        assertFalse(json.contains("\"faq\":"));
+    }
+
+    @Test
+    @DisplayName("Ticket creator can list their ticket attachments")
+    @WithMockUser(username = "student", roles = {"STUDENT"})
+    void ticketCreatorCanListAttachments() throws Exception {
+        mockMvc.perform(get("/tickets/" + testTicket.getId() + "/attachments"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(testAttachment.getId()))
+                .andExpect(jsonPath("$[0].originalFileName").value("network_report.pdf"));
+    }
+
+    @Test
+    @DisplayName("Unrelated student cannot list another user's ticket attachments")
+    @WithMockUser(username = "other_student", roles = {"STUDENT"})
+    void unrelatedStudentCannotListAttachments() throws Exception {
+        mockMvc.perform(get("/tickets/" + testTicket.getId() + "/attachments"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Support staff can list and download ticket attachments")
+    @WithMockUser(username = "agent", roles = {"SUPPORT_AGENT"})
+    void supportAgentCanListAndDownloadAttachments() throws Exception {
+        mockMvc.perform(get("/tickets/" + testTicket.getId() + "/attachments"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(testAttachment.getId()));
+
+        mockMvc.perform(get("/tickets/" + testTicket.getId() + "/attachments/" + testAttachment.getId() + "/download"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Support staff can upload an allowed attachment")
+    @WithMockUser(username = "agent", roles = {"SUPPORT_AGENT"})
+    void supportAgentCanUploadAttachment() throws Exception {
+        MockMultipartFile textFile = new MockMultipartFile(
+                "files",
+                "diagnostic.txt",
+                MediaType.TEXT_PLAIN_VALUE,
+                "diagnostic output".getBytes()
+        );
+
+        mockMvc.perform(multipart("/tickets/" + testTicket.getId() + "/attachments")
+                        .file(textFile))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$[0].originalFileName").value("diagnostic.txt"));
+    }
+
+    @Test
+    @DisplayName("Attachment larger than 10 MB is rejected")
+    @WithMockUser(username = "student", roles = {"STUDENT"})
+    void oversizedAttachmentIsRejected() throws Exception {
+        MockMultipartFile oversizedFile = new MockMultipartFile(
+                "files",
+                "oversized.pdf",
+                MediaType.APPLICATION_PDF_VALUE,
+                new byte[(10 * 1024 * 1024) + 1]
+        );
+
+        mockMvc.perform(multipart("/tickets/" + testTicket.getId() + "/attachments")
+                        .file(oversizedFile))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("10MB")));
+    }
+
+    @Test
+    @DisplayName("Attachment uploader can delete while the ticket is open")
+    @WithMockUser(username = "student", roles = {"STUDENT"})
+    void attachmentUploaderCanDeleteWhileTicketIsOpen() throws Exception {
+        mockMvc.perform(delete("/tickets/" + testTicket.getId() + "/attachments/" + testAttachment.getId()))
+                .andExpect(status().isNoContent());
+
+        assertFalse(attachmentRepository.existsById(testAttachment.getId()));
+    }
+
+    @Test
+    @DisplayName("Unrelated student cannot delete another user's attachment")
+    @WithMockUser(username = "other_student", roles = {"STUDENT"})
+    void unrelatedStudentCannotDeleteAttachment() throws Exception {
+        mockMvc.perform(delete("/tickets/" + testTicket.getId() + "/attachments/" + testAttachment.getId()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Support staff cannot delete an attachment")
+    @WithMockUser(username = "agent", roles = {"SUPPORT_AGENT"})
+    void supportAgentCannotDeleteAttachment() throws Exception {
+        mockMvc.perform(delete("/tickets/" + testTicket.getId() + "/attachments/" + testAttachment.getId()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("System Administrator can delete any attachment")
+    @WithMockUser(username = "admin", roles = {"SYSTEM_ADMINISTRATOR"})
+    void systemAdminCanDeleteAnyAttachment() throws Exception {
+        mockMvc.perform(delete("/tickets/" + testTicket.getId() + "/attachments/" + testAttachment.getId()))
+                .andExpect(status().isNoContent());
+
+        assertFalse(attachmentRepository.existsById(testAttachment.getId()));
     }
 }

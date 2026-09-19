@@ -1,6 +1,7 @@
 package com.university.helpdesk.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -71,6 +72,7 @@ public class KnowledgeBaseArticle {
     public int getViewCount() { return viewCount; }
     public void setViewCount(int viewCount) { this.viewCount = viewCount; }
 
+    @JsonProperty("isFaq")
     public boolean isFaq() { return isFaq; }
     public void setFaq(boolean faq) { isFaq = faq; }
 
