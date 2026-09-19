@@ -37,3 +37,5 @@ ehthumbs.db
 # ── Environment & Secrets ──
 .env
 *.env.local
+# Runtime uploaded ticket attachments
+uploads/
