@@ -4,73 +4,76 @@ import { useAuth, ROLES } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
 
 // ── Role badge color mapping ──
-const roleBadgeStyle = (frontendRole) => {
-  switch (frontendRole) {
-    case ROLES.ADMIN:
-    case 'SYSTEM_ADMINISTRATOR':  return 'bg-rose-500/20 text-rose-300 border-rose-500/30';
-    case ROLES.DEPARTMENT_MANAGER:
-    case 'EXECUTIVE':            return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
-    case ROLES.SUPPORT_AGENT:    return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-    case ROLES.TEAM_LEAD:        return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30';
-    case ROLES.KNOWLEDGE_MANAGER:return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
-    default:                     return 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30';
+const roleBadgeStyle = (role) => {
+  switch (role) {
+    case ROLES.SYSTEM_ADMINISTRATOR: return 'bg-rose-500/20 text-rose-300 border-rose-500/30';
+    case ROLES.MANAGER_EXECUTIVE:    return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+    case ROLES.TEAM_LEAD:            return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30';
+    case ROLES.SUPPORT_AGENT:        return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+    case ROLES.KNOWLEDGE_MANAGER:    return 'bg-teal-500/20 text-teal-300 border-teal-500/30';
+    case ROLES.LECTURER:             return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+    case ROLES.STUDENT:              return 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30';
+    default:                         return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
   }
 };
 
 const roleDisplayName = (user) => {
-  // Show backend role for clarity but use frontendRole for badge color
-  const role = user?.role || user?.frontendRole || 'USER';
-  return role.replace(/_/g, ' ');
+  const role = user?.role || user?.frontendRole || 'STUDENT';
+  switch (role) {
+    case ROLES.STUDENT:              return 'Student';
+    case ROLES.LECTURER:             return 'Lecturer';
+    case ROLES.SUPPORT_AGENT:        return 'Support Agent';
+    case ROLES.TEAM_LEAD:            return 'Team Lead';
+    case ROLES.KNOWLEDGE_MANAGER:    return 'Knowledge Manager';
+    case ROLES.SYSTEM_ADMINISTRATOR: return 'System Administrator';
+    case ROLES.MANAGER_EXECUTIVE:    return 'Manager / Executive';
+    default:                         return role.replace(/_/g, ' ');
+  }
 };
 
 // ── Navigation Items per role ──
-const getNavItems = (frontendRole) => {
+const getNavItems = (role) => {
   const items = [
     { to: '/home', label: 'Dashboard', icon: '🏠' },
   ];
 
-  // END_USER (Student / Lecturer)
-  if (frontendRole === ROLES.END_USER) {
+  // STUDENT / LECTURER (End Users / Customers)
+  if (role === ROLES.STUDENT || role === ROLES.LECTURER) {
     items.push({ to: '/my-tickets',  label: 'My Tickets',      icon: '🗂️' });
     items.push({ to: '/create',      label: 'New Ticket',      icon: '➕' });
     items.push({ to: '/kb',          label: 'Knowledge Base',  icon: '📚' });
   }
 
   // SUPPORT_AGENT
-  if (frontendRole === ROLES.SUPPORT_AGENT) {
+  if (role === ROLES.SUPPORT_AGENT) {
     items.push({ to: '/dashboard',   label: 'Agent Queue',     icon: '🛠️' });
     items.push({ to: '/tickets',     label: 'All Tickets',     icon: '📋' });
-    items.push({ to: '/csat',        label: 'CSAT',            icon: '⭐' });
     items.push({ to: '/kb',          label: 'Knowledge Base',  icon: '📚' });
   }
 
   // TEAM_LEAD
-  if (frontendRole === ROLES.TEAM_LEAD) {
+  if (role === ROLES.TEAM_LEAD) {
     items.push({ to: '/dashboard',   label: 'Team Board',      icon: '🛠️' });
-    items.push({ to: '/tickets',     label: 'All Tickets',     icon: '📋' });
+    items.push({ to: '/tickets',     label: 'Ticket Queue',    icon: '📋' });
     items.push({ to: '/csat',        label: 'CSAT',            icon: '⭐' });
     items.push({ to: '/analytics',   label: 'Analytics',       icon: '📊' });
     items.push({ to: '/kb',          label: 'Knowledge Base',  icon: '📚' });
   }
 
-  // KNOWLEDGE_MANAGER
-  if (frontendRole === ROLES.KNOWLEDGE_MANAGER) {
+  // KNOWLEDGE_MANAGER (KB & Chatbot content only; no operational tickets)
+  if (role === ROLES.KNOWLEDGE_MANAGER) {
     items.push({ to: '/knowledge-base/manage', label: 'Manage KB', icon: '📚' });
     items.push({ to: '/kb',          label: 'Knowledge Base',  icon: '🔍' });
-    items.push({ to: '/tickets',     label: 'All Tickets',     icon: '📋' });
   }
 
-  // DEPARTMENT_MANAGER
-  if (frontendRole === ROLES.DEPARTMENT_MANAGER || frontendRole === 'EXECUTIVE') {
-    items.push({ to: '/analytics',   label: 'Analytics',       icon: '📊' });
-    items.push({ to: '/tickets',     label: 'All Tickets',     icon: '📋' });
-    items.push({ to: '/csat',        label: 'CSAT',            icon: '⭐' });
-    items.push({ to: '/dashboard',   label: 'Agent Dashboard', icon: '🛠️' });
-    items.push({ to: '/kb',          label: 'Knowledge Base',  icon: '📚' });
+  // MANAGER_EXECUTIVE (Analytics, Reports, CSAT Reviews; no operational tickets)
+  if (role === ROLES.MANAGER_EXECUTIVE) {
+    items.push({ to: '/analytics',   label: 'Analytics & Reports', icon: '📊' });
+    items.push({ to: '/csat',        label: 'CSAT Reviews',        icon: '⭐' });
   }
 
-  // ADMIN / SYSTEM_ADMINISTRATOR
-  if (frontendRole === ROLES.ADMIN || frontendRole === 'SYSTEM_ADMINISTRATOR') {
+  // SYSTEM_ADMINISTRATOR (Full system administration)
+  if (role === ROLES.SYSTEM_ADMINISTRATOR) {
     items.push({ to: '/admin/users', label: 'Users & Roles',   icon: '👥' });
     items.push({ to: '/tickets',     label: 'All Tickets',     icon: '📋' });
     items.push({ to: '/dashboard',   label: 'Agent Dashboard', icon: '🛠️' });
@@ -106,7 +109,7 @@ const Navbar = () => {
     navigate('/login', { replace: true });
   };
 
-  const navItems = isAuthenticated ? getNavItems(user?.frontendRole) : [];
+  const navItems = isAuthenticated ? getNavItems(user?.role || user?.frontendRole) : [];
 
   return (
     <header className="sticky top-0 z-50 bg-slate-950/85 backdrop-blur-xl border-b border-slate-800 print:hidden">
@@ -165,7 +168,7 @@ const Navbar = () => {
                 </span>
                 <div className="hidden sm:block text-left">
                   <div className="text-xs font-semibold text-white leading-tight">{user.fullName || user.username}</div>
-                  <span className={`inline-block px-1.5 rounded border font-semibold tracking-wider uppercase text-[9px] ${roleBadgeStyle(user.frontendRole)}`}>
+                  <span className={`inline-block px-1.5 rounded border font-semibold tracking-wider uppercase text-[9px] ${roleBadgeStyle(user?.role || user?.frontendRole)}`}>
                     {roleDisplayName(user)}
                   </span>
                 </div>
@@ -180,7 +183,7 @@ const Navbar = () => {
                   <div className="px-4 py-3 border-b border-slate-700/60">
                     <p className="text-sm font-semibold text-white">{user.fullName || user.username}</p>
                     <p className="text-xs text-slate-400 truncate">{user.email}</p>
-                    <span className={`inline-block mt-1 px-2 py-0.5 rounded border font-semibold tracking-wider uppercase text-[9px] ${roleBadgeStyle(user.frontendRole)}`}>
+                    <span className={`inline-block mt-1 px-2 py-0.5 rounded border font-semibold tracking-wider uppercase text-[9px] ${roleBadgeStyle(user?.role || user?.frontendRole)}`}>
                       {roleDisplayName(user)}
                     </span>
                   </div>

@@ -12,7 +12,7 @@ const categoryBadges = {
   SECURITY: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
 };
 
-const AGENT_ROLES = ['SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN'];
+const KM_ROLES = ['KNOWLEDGE_MANAGER', 'SYSTEM_ADMINISTRATOR'];
 
 export default function KnowledgeBase({ onOpenArticleInChat }) {
   const { user, isAuthenticated } = useAuth();
@@ -36,7 +36,7 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
   const [editorMsg, setEditorMsg] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const canEdit = isAuthenticated && AGENT_ROLES.includes(user?.role);
+  const canEdit = isAuthenticated && KM_ROLES.includes(user?.role);
 
   const fetchArticles = useCallback(async () => {
     setLoading(true);

@@ -35,22 +35,20 @@ public class FeedbackController {
         this.userRepository = userRepository;
     }
 
-    // ─── POST /api/feedback (Students, Lecturers, Admins) ───────────────────
+    // ─── POST /api/feedback (Students and Lecturers only for own tickets) ───
     @PostMapping
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<?> submitFeedback(@RequestBody Map<String, Object> body) {
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER')")
+    public ResponseEntity<?> submitFeedback(@RequestBody Map<String, Object> body, Authentication auth) {
         // Required fields
         Object ticketIdObj = body.get("ticketId");
-        Object userIdObj   = body.get("userId") != null ? body.get("userId") : body.get("submittedById");
         Object ratingObj   = body.get("rating");
 
-        if (ticketIdObj == null || userIdObj == null || ratingObj == null) {
+        if (ticketIdObj == null || ratingObj == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "ticketId, userId/submittedById, and rating are required");
+                    "ticketId and rating are required");
         }
 
         Long ticketId = Long.valueOf(ticketIdObj.toString());
-        Long userId   = Long.valueOf(userIdObj.toString());
         int  rating   = Integer.parseInt(ratingObj.toString());
 
         if (rating < 1 || rating > 5) {
@@ -66,11 +64,17 @@ public class FeedbackController {
                     "Feedback can only be submitted for RESOLVED or CLOSED tickets");
         }
 
-        User submitter = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        User submitter = userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        // Only the ticket creator can submit feedback
+        if (ticket.getCreatedBy() == null || !ticket.getCreatedBy().getId().equals(submitter.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Access denied: You can only submit feedback for your own tickets");
+        }
 
         // Prevent duplicate feedback from the same user on the same ticket
-        Optional<Feedback> existing = feedbackRepository.findByTicketIdAndSubmittedById(ticketId, userId);
+        Optional<Feedback> existing = feedbackRepository.findByTicketIdAndSubmittedById(ticketId, submitter.getId());
         if (existing.isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "You have already submitted feedback for this ticket");
@@ -86,9 +90,9 @@ public class FeedbackController {
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
-    // ─── PUT /api/feedback/{id} (Update within 24h window) ───────────────────
+    // ─── PUT /api/feedback/{id} (Update within 24h window - Student/Lecturer) ─
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER')")
     public ResponseEntity<?> updateFeedback(@PathVariable Long id,
                                             @RequestBody Map<String, Object> body,
                                             Authentication auth) {
@@ -98,16 +102,13 @@ public class FeedbackController {
         User currentUser = userRepository.findByUsername(auth.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a ->
-                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
-
-        // IDOR check: must be the user who submitted feedback (or Admin)
-        if (!isAdmin && (feedback.getSubmittedBy() == null || !feedback.getSubmittedBy().getId().equals(currentUser.getId()))) {
+        // IDOR check: must be the customer who submitted feedback
+        if (feedback.getSubmittedBy() == null || !feedback.getSubmittedBy().getId().equals(currentUser.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You can only edit your own feedback");
         }
 
         // 24-hour time window check
-        if (!isAdmin && feedback.getCreatedAt() != null && feedback.getCreatedAt().isBefore(LocalDateTime.now().minusHours(24))) {
+        if (feedback.getCreatedAt() != null && feedback.getCreatedAt().isBefore(LocalDateTime.now().minusHours(24))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Feedback can only be edited within 24 hours of submission");
         }
 
@@ -127,9 +128,9 @@ public class FeedbackController {
         return ResponseEntity.ok(saved);
     }
 
-    // ─── DELETE /api/feedback/{id} (Withdraw within 24h window) ──────────────
+    // ─── DELETE /api/feedback/{id} (Withdraw within 24h window - Student/Lecturer)
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER')")
     public ResponseEntity<?> deleteFeedback(@PathVariable Long id, Authentication auth) {
         Feedback feedback = feedbackRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Feedback not found"));
@@ -137,16 +138,13 @@ public class FeedbackController {
         User currentUser = userRepository.findByUsername(auth.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a ->
-                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
-
-        // IDOR check: must be the user who submitted feedback (or Admin)
-        if (!isAdmin && (feedback.getSubmittedBy() == null || !feedback.getSubmittedBy().getId().equals(currentUser.getId()))) {
+        // IDOR check: must be the customer who submitted feedback
+        if (feedback.getSubmittedBy() == null || !feedback.getSubmittedBy().getId().equals(currentUser.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You can only withdraw your own feedback");
         }
 
         // 24-hour time window check
-        if (!isAdmin && feedback.getCreatedAt() != null && feedback.getCreatedAt().isBefore(LocalDateTime.now().minusHours(24))) {
+        if (feedback.getCreatedAt() != null && feedback.getCreatedAt().isBefore(LocalDateTime.now().minusHours(24))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Feedback can only be withdrawn within 24 hours of submission");
         }
 
@@ -156,7 +154,7 @@ public class FeedbackController {
 
     // ─── GET /api/feedback/ticket/{ticketId} ────────────────────────────────
     @GetMapping("/ticket/{ticketId}")
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<List<Feedback>> getFeedbackForTicket(@PathVariable Long ticketId) {
         if (!ticketRepository.existsById(ticketId)) {
             return ResponseEntity.notFound().build();
@@ -164,10 +162,18 @@ public class FeedbackController {
         return ResponseEntity.ok(feedbackRepository.findByTicketId(ticketId));
     }
 
-    // ─── GET /api/feedback/agent/{agentId}/summary (Agents, Managers, Admins) ─
+    // ─── GET /api/feedback/agent/{agentId}/summary ──────────────────────────
     @GetMapping("/agent/{agentId}/summary")
-    @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<Map<String, Object>> getAgentSummary(@PathVariable Long agentId) {
+    @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'TEAM_LEAD', 'MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<Map<String, Object>> getAgentSummary(@PathVariable Long agentId, Authentication auth) {
+        boolean isSupportAgent = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPPORT_AGENT"));
+        if (isSupportAgent) {
+            User currentUser = userRepository.findByUsername(auth.getName()).orElse(null);
+            if (currentUser == null || !currentUser.getId().equals(agentId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Support agents can only view their own performance summary");
+            }
+        }
+
         User agent = userRepository.findById(agentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Agent not found"));
 
@@ -178,7 +184,7 @@ public class FeedbackController {
 
     // ─── GET /api/feedback/department/{department} (Managers & Admins) ────────
     @GetMapping("/department/{department}")
-    @PreAuthorize("hasAnyRole('DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Map<String, Object>> getDepartmentStats(@PathVariable String department) {
         List<Feedback> list = feedbackRepository.findByDepartment(department);
         return ResponseEntity.ok(buildSummary(department, "DEPARTMENT", department, list));
@@ -186,7 +192,7 @@ public class FeedbackController {
 
     // ─── GET /api/feedback/all (Managers & Admins) ───────────────────────────
     @GetMapping("/all")
-    @PreAuthorize("hasAnyRole('DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<List<Feedback>> getAllFeedback() {
         return ResponseEntity.ok(feedbackRepository.findAll());
     }

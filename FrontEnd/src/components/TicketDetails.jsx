@@ -31,14 +31,17 @@ const priorityColors = {
 };
 
 const roleColors = {
-  ADMIN: 'bg-rose-500/20 text-rose-300',
-  DEPARTMENT_MANAGER: 'bg-amber-500/20 text-amber-300',
+  SYSTEM_ADMINISTRATOR: 'bg-rose-500/20 text-rose-300',
+  MANAGER_EXECUTIVE: 'bg-amber-500/20 text-amber-300',
+  TEAM_LEAD: 'bg-purple-500/20 text-purple-300',
   SUPPORT_AGENT: 'bg-blue-500/20 text-blue-300',
-  LECTURER: 'bg-emerald-500/20 text-emerald-300',
+  KNOWLEDGE_MANAGER: 'bg-emerald-500/20 text-emerald-300',
+  LECTURER: 'bg-teal-500/20 text-teal-300',
   STUDENT: 'bg-indigo-500/20 text-indigo-300',
 };
 
-const AGENT_ROLES = ['SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN'];
+const STAFF_ROLES = ['SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR'];
+const LEAD_OR_ADMIN_ROLES = ['TEAM_LEAD', 'SYSTEM_ADMINISTRATOR'];
 
 export default function TicketDetails({ ticketId, onBack }) {
   const { user, isAuthenticated } = useAuth();
@@ -54,8 +57,17 @@ export default function TicketDetails({ ticketId, onBack }) {
   const [csatSubmitted, setCsatSubmitted] = useState(false);
   const [isInternalNote, setIsInternalNote] = useState(false);
 
-  const isAgent = isAuthenticated && AGENT_ROLES.includes(user?.role);
+  const isStaff = isAuthenticated && STAFF_ROLES.includes(user?.role);
+  const isLeadOrAdmin = isAuthenticated && LEAD_OR_ADMIN_ROLES.includes(user?.role);
+  const isAgent = isStaff;
   const isTicketCreator = isAuthenticated && ticket?.createdBy?.id === user?.id;
+
+  const [attachments, setAttachments] = useState([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [attachmentError, setAttachmentError] = useState('');
+  const [availableAgents, setAvailableAgents] = useState([]);
+  const [selectedReassignAgentId, setSelectedReassignAgentId] = useState('');
+  const canUploadAttachment = (isTicketCreator && ticket?.status === 'OPEN') || isStaff;
 
   const [myFeedback, setMyFeedback] = useState(null);
   const [csatMode, setCsatMode] = useState('create');
@@ -104,10 +116,90 @@ export default function TicketDetails({ ticketId, onBack }) {
     }
   }, [ticketId, user?.id]);
 
+  const fetchAttachments = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/tickets/${ticketId}/attachments`);
+      setAttachments(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      // silently fail
+    }
+  }, [ticketId]);
+
+  const fetchAgents = useCallback(async () => {
+    if (!isLeadOrAdmin) return;
+    try {
+      const res = await axios.get(`${API}/users/agents`);
+      setAvailableAgents(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      // silently fail
+    }
+  }, [isLeadOrAdmin]);
+
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchTicket(), fetchComments(), fetchFeedback()]).finally(() => setLoading(false));
-  }, [fetchTicket, fetchComments, fetchFeedback]);
+    Promise.all([fetchTicket(), fetchComments(), fetchFeedback(), fetchAttachments(), fetchAgents()]).finally(() => setLoading(false));
+  }, [fetchTicket, fetchComments, fetchFeedback, fetchAttachments, fetchAgents]);
+
+  const handleUploadAttachments = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setAttachmentError('');
+    setUploadingAttachment(true);
+    const formData = new FormData();
+    files.forEach(f => formData.append('files', f));
+    try {
+      await axios.post(`${API}/tickets/${ticketId}/attachments`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      fetchAttachments();
+    } catch (err) {
+      setAttachmentError(err.response?.data?.message || 'Failed to upload attachment.');
+    } finally {
+      setUploadingAttachment(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDownloadAttachment = async (attachmentId, originalFileName) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API}/tickets/${ticketId}/attachments/${attachmentId}/download`, {
+        responseType: 'blob',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', originalFileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Failed to download attachment: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    if (!window.confirm('Are you sure you want to delete this attachment?')) return;
+    try {
+      await axios.delete(`${API}/tickets/${ticketId}/attachments/${attachmentId}`);
+      fetchAttachments();
+    } catch (err) {
+      alert('Failed to delete attachment: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleReassignTicket = async (agentId) => {
+    try {
+      const res = await axios.put(`${API}/tickets/${ticketId}/assign`, { agentId: Number(agentId) });
+      setTicket(res.data);
+      setStatusMsg('Ticket reassigned successfully.');
+      setSelectedReassignAgentId('');
+    } catch (err) {
+      setStatusMsg('Failed to reassign: ' + (err.response?.data?.message || err.message));
+    }
+  };
 
   // Auto-trigger CSAT popup for creator when viewing a RESOLVED ticket if not yet rated
   useEffect(() => {
@@ -340,14 +432,34 @@ export default function TicketDetails({ ticketId, onBack }) {
           </div>
         )}
 
-        {/* Action Buttons – Agent only */}
+        {/* Action Buttons – Agent / Lead / Admin */}
         {canAct && (
-          <div className="pt-3 border-t border-slate-700/50 flex flex-wrap gap-2">
+          <div className="pt-3 border-t border-slate-700/50 flex flex-wrap items-center gap-2">
             {!isMine && ticket.status !== 'CLOSED' && ticket.status !== 'RESOLVED' && (
               <button onClick={assignToMe}
                 className="px-3 py-1.5 bg-indigo-600/80 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition">
                 📋 Assign to Me
               </button>
+            )}
+            {isLeadOrAdmin && ticket.status !== 'CLOSED' && availableAgents.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={selectedReassignAgentId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedReassignAgentId(val);
+                    if (val) handleReassignTicket(val);
+                  }}
+                  className="bg-slate-900 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">👤 Reassign Agent...</option>
+                  {availableAgents.map((ag) => (
+                    <option key={ag.id} value={ag.id}>
+                      {ag.fullName || ag.username}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
             {ticket.status === 'OPEN' && (
               <button onClick={() => changeStatus('IN_PROGRESS')}
@@ -415,6 +527,100 @@ export default function TicketDetails({ ticketId, onBack }) {
 
         {statusMsg && (
           <p className="text-rose-400 text-xs font-medium">{statusMsg}</p>
+        )}
+      </div>
+
+      {/* ── Attachments Subsystem Card ── */}
+      <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 shadow-xl space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="text-2xl">📎</span>
+            <div>
+              <h3 className="text-base font-bold text-white">
+                Ticket Attachments ({attachments.length})
+              </h3>
+              <p className="text-xs text-slate-400">
+                Uploaded diagnostic logs, documents, and screenshots (Max 10MB each)
+              </p>
+            </div>
+          </div>
+
+          {canUploadAttachment && (
+            <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md transition disabled:opacity-50">
+              <span>{uploadingAttachment ? '⏳ Uploading...' : '➕ Upload File'}</span>
+              <input
+                type="file"
+                multiple
+                disabled={uploadingAttachment}
+                accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+                onChange={handleUploadAttachments}
+                className="hidden"
+              />
+            </label>
+          )}
+        </div>
+
+        {attachmentError && (
+          <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-lg">
+            ⚠️ {attachmentError}
+          </p>
+        )}
+
+        {attachments.length === 0 ? (
+          <div className="text-center py-6 text-slate-500 text-xs border border-dashed border-slate-700/60 rounded-xl">
+            No attachments uploaded for this ticket.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {attachments.map((att) => {
+              const canDelete =
+                (ticket?.status === 'OPEN' && (att.uploaderName === user?.username || isTicketCreator)) ||
+                user?.role === 'SYSTEM_ADMINISTRATOR';
+
+              return (
+                <div
+                  key={att.id}
+                  className="bg-slate-900/80 border border-slate-700/60 rounded-xl p-3.5 flex flex-col justify-between gap-2 hover:border-slate-600 transition group"
+                >
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <span className="text-xl mt-0.5">
+                      {att.contentType?.startsWith('image/')
+                        ? '🖼️'
+                        : att.contentType?.includes('pdf')
+                        ? '📄'
+                        : '📁'}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-semibold text-slate-200 truncate" title={att.originalFileName}>
+                        {att.originalFileName}
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        {att.formattedFileSize} • By {att.uploaderName}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[11px]">
+                    <button
+                      onClick={() => handleDownloadAttachment(att.id, att.originalFileName)}
+                      className="text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition"
+                    >
+                      ⬇️ Download
+                    </button>
+                    {canDelete && (
+                      <button
+                        onClick={() => handleDeleteAttachment(att.id)}
+                        className="text-rose-400 hover:text-rose-300 transition"
+                        title="Delete file"
+                      >
+                        🗑️
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 

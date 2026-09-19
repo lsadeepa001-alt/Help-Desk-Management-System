@@ -40,7 +40,7 @@ export default function CSATDashboard() {
   const [agentData, setAgentData] = useState(null);
   const [loadingAgent, setLoadingAgent] = useState(false);
 
-  const isManager = user?.role === 'DEPARTMENT_MANAGER' || user?.role === 'ADMIN';
+  const isManager = ['TEAM_LEAD', 'MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR'].includes(user?.role);
 
   const loadMyStats = useCallback(async () => {
     if (!user) return;

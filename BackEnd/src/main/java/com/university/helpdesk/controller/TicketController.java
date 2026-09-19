@@ -44,21 +44,20 @@ public class TicketController {
         if (auth == null) return false;
         return auth.getAuthorities().stream().anyMatch(a ->
                 a.getAuthority().equals("ROLE_SUPPORT_AGENT") ||
-                a.getAuthority().equals("ROLE_DEPARTMENT_MANAGER") ||
-                a.getAuthority().equals("ROLE_ADMIN") ||
+                a.getAuthority().equals("ROLE_TEAM_LEAD") ||
                 a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
     }
 
-    // ─── GET ALL (Restricted to Staff, Managers, Admins) ──────────────────────
+    // ─── GET ALL (Restricted to Staff, Team Leads, Admins) ───────────────────
     @GetMapping
-    @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public List<Ticket> getAllTickets() {
         return ticketRepository.findAll();
     }
 
-    // ─── GET MY TICKETS (End-Users: Student, Lecturer + Staff) ───────────────
+    // ─── GET MY TICKETS (All authenticated users for their own tickets) ──────
     @GetMapping("/my-tickets")
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'KNOWLEDGE_MANAGER', 'MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<List<Ticket>> getMyTickets(Authentication auth) {
         if (auth == null || !auth.isAuthenticated()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
@@ -70,7 +69,7 @@ public class TicketController {
 
     // ─── GET BY ID (Enforces Ownership for End-Users) ─────────────────────────
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Ticket> getTicketById(@PathVariable Long id, Authentication auth) {
         Ticket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
@@ -86,7 +85,7 @@ public class TicketController {
 
     // ─── CREATE TICKET ───────────────────────────────────────────────────────
     @PostMapping
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Ticket> createTicket(@RequestBody Ticket ticket, Authentication auth) {
         User currentUser = null;
         if (auth != null && auth.isAuthenticated()) {
@@ -127,7 +126,7 @@ public class TicketController {
 
     // ─── EDIT TICKET (Creator only, while status is OPEN) ────────────────────
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Ticket> updateTicket(@PathVariable Long id,
                                                @RequestBody Map<String, Object> body,
                                                Authentication auth) {
@@ -138,7 +137,7 @@ public class TicketController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
         boolean isAdmin = auth.getAuthorities().stream().anyMatch(a ->
-                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
+                a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
 
         // IDOR check: must be ticket creator (or Admin)
         if (!isAdmin && (ticket.getCreatedBy() == null || !ticket.getCreatedBy().getId().equals(currentUser.getId()))) {
@@ -180,7 +179,7 @@ public class TicketController {
 
     // ─── CANCEL / DELETE TICKET (Creator soft-cancels if OPEN, Admin hard-deletes) ──
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<?> deleteOrCancelTicket(@PathVariable Long id, Authentication auth) {
         Ticket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
@@ -189,7 +188,7 @@ public class TicketController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
         boolean isAdmin = auth.getAuthorities().stream().anyMatch(a ->
-                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
+                a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
 
         if (isAdmin) {
             ticketRepository.deleteById(id);
@@ -212,7 +211,7 @@ public class TicketController {
 
     // ─── CONFIRM RESOLUTION (Ticket Creator confirms resolution -> CLOSED) ───
     @PutMapping("/{id}/confirm")
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Ticket> confirmResolution(@PathVariable Long id, Authentication auth) {
         Ticket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
@@ -221,7 +220,7 @@ public class TicketController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
         boolean isAdmin = auth.getAuthorities().stream().anyMatch(a ->
-                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
+                a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
 
         // IDOR check: must be ticket creator or Admin
         if (!isAdmin && (ticket.getCreatedBy() == null || !ticket.getCreatedBy().getId().equals(currentUser.getId()))) {
@@ -246,7 +245,7 @@ public class TicketController {
 
     // ─── REOPEN TICKET (Ticket Creator reopens -> REOPENED with reason) ───────
     @PutMapping("/{id}/reopen")
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Ticket> reopenTicket(@PathVariable Long id,
                                                @RequestBody(required = false) Map<String, String> body,
                                                Authentication auth) {
@@ -257,7 +256,7 @@ public class TicketController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
         boolean isAdmin = auth.getAuthorities().stream().anyMatch(a ->
-                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
+                a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
 
         // IDOR check: must be ticket creator or Admin
         if (!isAdmin && (ticket.getCreatedBy() == null || !ticket.getCreatedBy().getId().equals(currentUser.getId()))) {
@@ -294,11 +293,11 @@ public class TicketController {
         return ResponseEntity.ok(updated);
     }
 
-    // ─── UPDATE STATUS (Agents, Managers, Admins) ─────────────────────────────
+    // ─── UPDATE STATUS (Agents, Team Leads, Admins) ──────────────────────────
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Ticket> updateStatus(@PathVariable Long id,
-                                               @RequestBody Map<String, String> body) {
+                                                @RequestBody Map<String, String> body) {
         Ticket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
 
@@ -344,12 +343,12 @@ public class TicketController {
         return ResponseEntity.ok(updated);
     }
 
-    // ─── ASSIGN AGENT (Agents self-assign, Managers/Admins assign any) ─────────
+    // ─── ASSIGN AGENT (Agents self-assign, Team Leads/Admins assign any) ──────
     @PutMapping("/{id}/assign")
-    @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Ticket> assignTicket(@PathVariable Long id,
-                                               @RequestBody Map<String, Object> body,
-                                               Authentication auth) {
+                                                @RequestBody Map<String, Object> body,
+                                                Authentication auth) {
         Ticket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
 
@@ -362,13 +361,12 @@ public class TicketController {
             assignedAgent = userRepository.findById(agentId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Agent not found"));
 
-            // Support agents can only assign to themselves; Managers and Admins can re-assign to anyone
-            boolean isManagerOrAdmin = auth.getAuthorities().stream().anyMatch(a ->
-                    a.getAuthority().equals("ROLE_DEPARTMENT_MANAGER") ||
-                    a.getAuthority().equals("ROLE_ADMIN") ||
+            // Support agents can only assign to themselves; Team Leads and Admins can assign/re-assign to anyone
+            boolean isLeadOrAdmin = auth.getAuthorities().stream().anyMatch(a ->
+                    a.getAuthority().equals("ROLE_TEAM_LEAD") ||
                     a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
 
-            if (!isManagerOrAdmin) {
+            if (!isLeadOrAdmin) {
                 User currentUser = userRepository.findByUsername(auth.getName()).orElse(null);
                 if (currentUser == null || !currentUser.getId().equals(agentId)) {
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Support agents can only assign tickets to themselves");
@@ -397,10 +395,10 @@ public class TicketController {
 
     // ─── POST COMMENT (Forces isInternal=false for End-Users) ─────────────────
     @PostMapping("/{id}/comments")
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<TicketComment> addComment(@PathVariable Long id,
-                                                    @RequestBody Map<String, Object> body,
-                                                    Authentication auth) {
+                                                     @RequestBody Map<String, Object> body,
+                                                     Authentication auth) {
         Ticket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
 
@@ -450,7 +448,7 @@ public class TicketController {
 
     // ─── GET COMMENTS (Hides Internal Notes from End-Users) ───────────────────
     @GetMapping("/{id}/comments")
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<List<TicketComment>> getComments(@PathVariable Long id, Authentication auth) {
         if (!ticketRepository.existsById(id)) {
             return ResponseEntity.notFound().build();

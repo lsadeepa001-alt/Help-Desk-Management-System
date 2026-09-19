@@ -107,9 +107,7 @@ public class AnalyticsService {
 
     // ─── AGENT PERFORMANCE ──────────────────────────────────────────────────
     public List<Map<String, Object>> getAgentPerformance() {
-        List<User> agents = userRepository.findAll().stream()
-                .filter(u -> u.getRole() == Role.SUPPORT_AGENT || u.getRole() == Role.DEPARTMENT_MANAGER || u.getRole() == Role.ADMIN)
-                .toList();
+        List<User> agents = userRepository.findByRole(Role.SUPPORT_AGENT);
 
         List<Ticket> allTickets = ticketRepository.findAll();
         List<Feedback> allFeedbacks = feedbackRepository.findAll();

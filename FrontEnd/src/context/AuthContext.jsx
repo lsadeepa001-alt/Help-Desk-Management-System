@@ -5,52 +5,40 @@ const AuthContext = createContext();
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
-// ── Role Hierarchy & Mapping ──
-// Backend roles → frontend display roles
-const ROLE_MAP = {
-  STUDENT: 'END_USER',
-  LECTURER: 'END_USER',
-  SUPPORT_AGENT: 'SUPPORT_AGENT',
-  DEPARTMENT_MANAGER: 'DEPARTMENT_MANAGER',
-  ADMIN: 'ADMIN',
-  SYSTEM_ADMINISTRATOR: 'ADMIN',
-};
-
-// All supported frontend roles for RBAC checks
+// ── Proposal Concrete Roles ──
 export const ROLES = {
-  END_USER: 'END_USER',
+  STUDENT: 'STUDENT',
+  LECTURER: 'LECTURER',
   SUPPORT_AGENT: 'SUPPORT_AGENT',
-  DEPARTMENT_MANAGER: 'DEPARTMENT_MANAGER',
-  EXECUTIVE: 'DEPARTMENT_MANAGER', // alias for department manager
   TEAM_LEAD: 'TEAM_LEAD',
   KNOWLEDGE_MANAGER: 'KNOWLEDGE_MANAGER',
-  ADMIN: 'ADMIN',
+  SYSTEM_ADMINISTRATOR: 'SYSTEM_ADMINISTRATOR',
+  MANAGER_EXECUTIVE: 'MANAGER_EXECUTIVE',
+};
+
+export const ROLE_LABELS = {
+  STUDENT: 'Student',
+  LECTURER: 'Lecturer',
+  SUPPORT_AGENT: 'Support Agent',
+  TEAM_LEAD: 'Team Lead / Supervisor',
+  KNOWLEDGE_MANAGER: 'Knowledge Manager',
+  SYSTEM_ADMINISTRATOR: 'System Administrator',
+  MANAGER_EXECUTIVE: 'Manager / Executive',
 };
 
 /**
- * Maps backend role to the nearest frontend RBAC role.
+ * Maps backend role directly to standard proposal role.
  */
 const mapBackendRole = (backendRole) => {
-  return ROLE_MAP[backendRole] || 'END_USER';
+  return backendRole || 'STUDENT';
 };
 
 /**
  * Returns the default landing path for a given role.
+ * All authenticated users land on the unified role-adaptive dashboard at /home.
  */
 export const getLandingPath = (role) => {
-  switch (role) {
-    case ROLES.ADMIN:
-      return '/admin/users';
-    case ROLES.SUPPORT_AGENT:
-    case ROLES.TEAM_LEAD:
-      return '/dashboard';
-    case ROLES.EXECUTIVE:
-      return '/analytics';
-    case ROLES.KNOWLEDGE_MANAGER:
-      return '/knowledge-base/manage';
-    default:
-      return '/my-tickets';
-  }
+  return '/home';
 };
 
 export const AuthProvider = ({ children }) => {
@@ -153,16 +141,12 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Check if user has one of the allowed roles.
-   * Checks both frontendRole (e.g. END_USER, DEPARTMENT_MANAGER, ADMIN)
-   * and raw backend role (e.g. STUDENT, LECTURER, SYSTEM_ADMINISTRATOR).
    * @param {string[]} allowedRoles - Array of allowed roles
    */
   const hasRole = useCallback((allowedRoles) => {
     if (!user) return false;
-    return allowedRoles.includes(user.frontendRole) ||
-           allowedRoles.includes(user.role) ||
-           (user.frontendRole === 'DEPARTMENT_MANAGER' && allowedRoles.includes('EXECUTIVE')) ||
-           (user.frontendRole === 'ADMIN' && allowedRoles.includes('SYSTEM_ADMINISTRATOR'));
+    const currentRole = user.role || user.frontendRole;
+    return allowedRoles.includes(currentRole);
   }, [user]);
 
   return (

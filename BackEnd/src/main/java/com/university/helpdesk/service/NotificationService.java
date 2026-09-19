@@ -27,9 +27,9 @@ public class NotificationService {
     public void notifyTicketCreated(Ticket ticket) {
         if (ticket == null) return;
         List<User> agentsAndAdmins = userRepository.findAll().stream()
-                .filter(u -> u.getRole() == Role.ADMIN ||
+                .filter(u -> u.getRole() == Role.SYSTEM_ADMINISTRATOR ||
                              u.getRole() == Role.SUPPORT_AGENT ||
-                             u.getRole() == Role.DEPARTMENT_MANAGER)
+                             u.getRole() == Role.TEAM_LEAD)
                 .toList();
 
         String title = "➕ New Support Ticket Submitted";

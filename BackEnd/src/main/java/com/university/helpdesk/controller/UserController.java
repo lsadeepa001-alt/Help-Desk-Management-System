@@ -28,23 +28,21 @@ public class UserController {
 
     // ─── GET ALL USERS (Administrator only) ───────────────────────────────────
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
 
-    // ─── GET AGENTS ONLY (Staff, Managers, and Admins for assignment) ─────────
+    // ─── GET AGENTS ONLY (Staff and Admins for ticket assignment) ─────────────
     @GetMapping("/agents")
-    @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public List<User> getAgents() {
-        List<User> agents = userRepository.findByRole(Role.SUPPORT_AGENT);
-        agents.addAll(userRepository.findByRole(Role.ADMIN));
-        return agents;
+        return userRepository.findByRole(Role.SUPPORT_AGENT);
     }
 
     // ─── GET USER BY ID (Administrator only) ──────────────────────────────────
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<User> getUserById(@PathVariable Long id) {
         return userRepository.findById(id)
                 .map(ResponseEntity::ok)
@@ -53,7 +51,7 @@ public class UserController {
 
     // ─── CREATE USER (Administrator only) ─────────────────────────────────────
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<?> createUser(@RequestBody User user) {
         if (user.getUsername() == null || user.getUsername().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username is required");
@@ -84,7 +82,7 @@ public class UserController {
 
     // ─── UPDATE USER ROLE (Administrator only) ────────────────────────────────
     @PutMapping("/{id}/role")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<?> updateUserRole(@PathVariable Long id, @RequestBody Map<String, String> body) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -106,7 +104,7 @@ public class UserController {
 
     // ─── UPDATE USER STATUS (Administrator only) ──────────────────────────────
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<?> updateUserStatus(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -130,7 +128,7 @@ public class UserController {
 
     // ─── DELETE USER (Administrator only) ─────────────────────────────────────
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         if (!userRepository.existsById(id)) {
             return ResponseEntity.notFound().build();

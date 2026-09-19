@@ -41,6 +41,38 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [fileError, setFileError] = useState('');
+
+  const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'];
+  const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+
+  const handleFileSelection = (e) => {
+    setFileError('');
+    const files = Array.from(e.target.files || []);
+    const validFiles = [];
+
+    for (const file of files) {
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      if (!ALLOWED_EXTENSIONS.includes(ext)) {
+        setFileError(`File type .${ext} is not supported. Only images, PDF, office documents, and text files are allowed (archives like zip/rar are prohibited).`);
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        setFileError(`File "${file.name}" exceeds the 10MB limit.`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    setSelectedFiles((prev) => [...prev, ...validFiles]);
+    e.target.value = '';
+  };
+
+  const removeFile = (index) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -75,9 +107,42 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
 
     try {
       const response = await axios.post(API_URL, payload);
+      const newTicket = response.data;
+      const ticketId = newTicket.id;
+
+      // Upload attachments if selected
+      if (selectedFiles.length > 0 && ticketId) {
+        try {
+          const uploadData = new FormData();
+          selectedFiles.forEach((file) => {
+            uploadData.append('files', file);
+          });
+
+          await axios.post(`http://localhost:8080/api/tickets/${ticketId}/attachments`, uploadData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+        } catch (uploadErr) {
+          console.error('Attachment upload warning:', uploadErr);
+          setMessage({
+            type: 'success',
+            text: `Ticket #${newTicket.ticketNumber || generatedTicketNum} created, but some attachments failed to upload: ${uploadErr.response?.data?.message || uploadErr.message}`,
+          });
+          setFormData({
+            title: '',
+            description: '',
+            priority: 'MEDIUM',
+            location: '',
+            categoryId: '1',
+          });
+          setSelectedFiles([]);
+          if (onTicketCreated) onTicketCreated();
+          return;
+        }
+      }
+
       setMessage({
         type: 'success',
-        text: `Ticket ${response.data.ticketNumber || generatedTicketNum} created successfully under ${user.fullName || user.username}!`,
+        text: `Ticket ${newTicket.ticketNumber || generatedTicketNum} created successfully with ${selectedFiles.length} attachment(s)!`,
       });
 
       setFormData({
@@ -87,6 +152,7 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
         location: '',
         categoryId: '1',
       });
+      setSelectedFiles([]);
 
       if (onTicketCreated) {
         onTicketCreated();
@@ -247,6 +313,60 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
             placeholder="e.g. Main Library 2nd Floor, Lab 03"
             className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm transition"
           />
+        </div>
+
+        {/* Attachments Section */}
+        <div className="space-y-2">
+          <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+            Attachments <span className="text-slate-500 font-normal">(Optional — Max 10MB per file)</span>
+          </label>
+          <div className="p-4 bg-slate-900/60 border border-dashed border-slate-700 rounded-xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <p className="text-xs text-slate-300 font-medium">Add screenshots, logs, error reports, or documents</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Permitted: JPG, PNG, PDF, Word, Excel, PowerPoint, TXT, CSV (No archives)</p>
+              </div>
+              <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition">
+                <span>📎 Browse Files</span>
+                <input
+                  type="file"
+                  multiple
+                  accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+                  onChange={handleFileSelection}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {fileError && (
+              <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-lg">
+                ⚠️ {fileError}
+              </p>
+            )}
+
+            {selectedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {selectedFiles.map((file, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200"
+                  >
+                    <span className="truncate max-w-[180px]">{file.name}</span>
+                    <span className="text-slate-500 text-[10px]">
+                      ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(idx)}
+                      className="text-slate-400 hover:text-rose-400 font-bold transition ml-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Submit Button */}

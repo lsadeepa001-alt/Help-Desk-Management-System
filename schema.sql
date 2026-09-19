@@ -23,7 +23,7 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL, -- Stored as BCrypt hash in Spring Boot
     email VARCHAR(100) NOT NULL UNIQUE,
     full_name VARCHAR(100) NOT NULL,
-    role VARCHAR(50) NOT NULL DEFAULT 'STUDENT', -- Supported: STUDENT, LECTURER, SUPPORT_AGENT, DEPARTMENT_MANAGER, SYSTEM_ADMINISTRATOR, ADMIN
+    role VARCHAR(50) NOT NULL DEFAULT 'STUDENT', -- Supported: STUDENT, LECTURER, SUPPORT_AGENT, TEAM_LEAD, KNOWLEDGE_MANAGER, SYSTEM_ADMINISTRATOR, MANAGER_EXECUTIVE
     department VARCHAR(100) DEFAULT NULL, -- e.g., 'Faculty of Computing', 'Library', 'Registrar'
     phone_number VARCHAR(20) DEFAULT NULL,
     status ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'ACTIVE',
@@ -90,8 +90,27 @@ CREATE TABLE ticket_comments (
     INDEX idx_comments_ticket (ticket_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ----------------------------------------------------------------------------
+-- 5. Ticket Attachments Table
+-- Secure file storage metadata for screenshots, logs, documents, and reports
+-- ----------------------------------------------------------------------------
+CREATE TABLE ticket_attachments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ticket_id BIGINT NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    original_file_name VARCHAR(255) NOT NULL,
+    content_type VARCHAR(100) NOT NULL,
+    file_size BIGINT NOT NULL,
+    uploaded_by BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_attachments_ticket FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    CONSTRAINT fk_attachments_uploaded_by FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_attachments_ticket (ticket_id),
+    INDEX idx_attachments_uploaded_by (uploaded_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ============================================================================
--- Seed Sample Data for Testing & Initial Setup
+-- Seed Sample Data for Testing & Initial Setup (Strict Proposal Roles)
 -- ============================================================================
 
 -- Seed Categories
@@ -102,24 +121,31 @@ INSERT INTO categories (name, description) VALUES
 ('Software & Licensing', 'Software installation, MATLAB, SPSS, Office 365 license requests'),
 ('Account & Security', 'Password resets, 2FA, unauthorized access, email access');
 
--- Seed Users (Passwords in production should be hashed with Spring Security BCrypt)
+-- Seed Users (All 7 concrete proposal roles seeded)
 INSERT INTO users (username, password, email, full_name, role, department, phone_number) VALUES
-('admin', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'admin@university.edu', 'System Administrator', 'ADMIN', 'IT Operations', '+1-555-0100'),
-('itsupport1', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'john.tech@university.edu', 'John Doe (IT Support)', 'SUPPORT_AGENT', 'IT Help Desk', '+1-555-0101'),
-('itsupport2', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'sarah.support@university.edu', 'Sarah Connor (IT Support)', 'SUPPORT_AGENT', 'IT Help Desk', '+1-555-0102'),
+('admin', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'admin@university.edu', 'System Administrator', 'SYSTEM_ADMINISTRATOR', 'IT Operations', '+1-555-0100'),
+('agent', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'agent@university.edu', 'Support Agent', 'SUPPORT_AGENT', 'IT Help Desk', '+1-555-0101'),
+('lead', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'lead@university.edu', 'Support Team Lead', 'TEAM_LEAD', 'IT Help Desk', '+1-555-0103'),
+('km', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'km@university.edu', 'Knowledge Manager', 'KNOWLEDGE_MANAGER', 'Library & KB', '+1-555-0104'),
+('manager', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'manager@university.edu', 'Executive Manager', 'MANAGER_EXECUTIVE', 'Management', '+1-555-0105'),
 ('prof_smith', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'smith@university.edu', 'Prof. Robert Smith', 'LECTURER', 'Faculty of Computing', '+1-555-0201'),
-('mgr_davis', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'davis@university.edu', 'David Davis (Dept Manager)', 'DEPARTMENT_MANAGER', 'IT Operations', '+1-555-0105'),
-('std_kamal', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'kamal.p@student.university.edu', 'Kamal Perera', 'STUDENT', 'Software Engineering', '+1-555-0301'),
-('std_nimal', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'nimal.f@student.university.edu', 'Nimal Fernando', 'STUDENT', 'Cyber Security', '+1-555-0302');
+('std_kamal', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'kamal.p@student.university.edu', 'Kamal Perera', 'STUDENT', 'Software Engineering', '+1-555-0301');
 
 -- Seed Sample Tickets
 INSERT INTO tickets (ticket_number, title, description, category_id, priority, status, created_by, assigned_to, location) VALUES
-('TICK-2026-0001', 'Unable to connect to Campus Wi-Fi in Main Library', 'My laptop cannot authenticate to Uni-Secure-WiFi on 2nd floor library.', 1, 'HIGH', 'IN_PROGRESS', 6, 2, 'Library 2nd Floor'),
-('TICK-2026-0002', 'Lab 04 Projector Screen Flickering', 'The HDMI connection to the projector in Lab 04 keeps cutting out during lectures.', 3, 'MEDIUM', 'OPEN', 4, NULL, 'Building B - Lab 04'),
-('TICK-2026-0003', 'MATLAB License Renewal Required', 'Please renew the student license for MATLAB 2025b for Machine Learning course.', 4, 'LOW', 'RESOLVED', 7, 3, 'Online Request');
+('TICK-2026-0001', 'Unable to connect to Campus Wi-Fi in Main Library', 'My laptop cannot authenticate to Uni-Secure-WiFi on 2nd floor library.', 1, 'HIGH', 'IN_PROGRESS', 7, 2, 'Library 2nd Floor'),
+('TICK-2026-0002', 'Lab 04 Projector Screen Flickering', 'The HDMI connection to the projector in Lab 04 keeps cutting out during lectures.', 3, 'MEDIUM', 'OPEN', 6, NULL, 'Building B - Lab 04'),
+('TICK-2026-0003', 'MATLAB License Renewal Required', 'Please renew the student license for MATLAB 2025b for Machine Learning course.', 4, 'LOW', 'RESOLVED', 7, 2, 'Online Request');
 
 -- Seed Ticket Comments
 INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal) VALUES
 (1, 2, 'Hi Kamal, we are checking the access point logs for Library 2nd Floor.', FALSE),
-(1, 6, 'Thank you! The issue is specifically happening between 10 AM and 12 PM.', FALSE),
+(1, 7, 'Thank you! The issue is specifically happening between 10 AM and 12 PM.', FALSE),
 (1, 2, 'Investigated AP-LIB-02; reconfigured DHCP scope limit.', TRUE);
+
+-- ============================================================================
+-- Migration Statements for Existing Environments
+-- ============================================================================
+-- Execute these statements if updating an existing deployment with legacy roles:
+-- UPDATE users SET role = 'SYSTEM_ADMINISTRATOR' WHERE role = 'ADMIN';
+-- UPDATE users SET role = 'MANAGER_EXECUTIVE' WHERE role = 'DEPARTMENT_MANAGER';

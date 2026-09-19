@@ -38,19 +38,19 @@ public class DataSeeder implements CommandLineRunner {
 
         System.out.println("🌱 Seeding default user accounts...");
 
-        // 1. Admin account
+        // 1. System Administrator
         User admin = new User();
         admin.setUsername("admin");
         admin.setPassword(passwordEncoder.encode("Admin@123"));
         admin.setEmail("admin@sliit.lk");
         admin.setFullName("System Administrator");
-        admin.setRole(Role.ADMIN);
+        admin.setRole(Role.SYSTEM_ADMINISTRATOR);
         admin.setDepartment("IT Administration");
         admin.setPhoneNumber("0770000001");
         admin.setStatus("ACTIVE");
         userRepository.save(admin);
 
-        // 2. Support Agent account
+        // 2. Support Agent
         User agent = new User();
         agent.setUsername("agent");
         agent.setPassword(passwordEncoder.encode("Agent@123"));
@@ -62,7 +62,43 @@ public class DataSeeder implements CommandLineRunner {
         agent.setStatus("ACTIVE");
         userRepository.save(agent);
 
-        // 3. Student account
+        // 3. Team Lead / Supervisor
+        User lead = new User();
+        lead.setUsername("lead");
+        lead.setPassword(passwordEncoder.encode("Lead@123"));
+        lead.setEmail("lead@sliit.lk");
+        lead.setFullName("Sarah Connor (Team Lead)");
+        lead.setRole(Role.TEAM_LEAD);
+        lead.setDepartment("IT Services");
+        lead.setPhoneNumber("0770000006");
+        lead.setStatus("ACTIVE");
+        userRepository.save(lead);
+
+        // 4. Knowledge Manager
+        User km = new User();
+        km.setUsername("km");
+        km.setPassword(passwordEncoder.encode("Manager@123"));
+        km.setEmail("km@sliit.lk");
+        km.setFullName("Elena Rostova (Knowledge Mgr)");
+        km.setRole(Role.KNOWLEDGE_MANAGER);
+        km.setDepartment("Academic Support");
+        km.setPhoneNumber("0770000007");
+        km.setStatus("ACTIVE");
+        userRepository.save(km);
+
+        // 5. Manager / Executive
+        User manager = new User();
+        manager.setUsername("manager");
+        manager.setPassword(passwordEncoder.encode("Manager@123"));
+        manager.setEmail("manager@sliit.lk");
+        manager.setFullName("David Davis (Manager/Executive)");
+        manager.setRole(Role.MANAGER_EXECUTIVE);
+        manager.setDepartment("IT Operations");
+        manager.setPhoneNumber("0770000005");
+        manager.setStatus("ACTIVE");
+        userRepository.save(manager);
+
+        // 6. Student account
         User student = new User();
         student.setUsername("student");
         student.setPassword(passwordEncoder.encode("Student@123"));
@@ -74,7 +110,7 @@ public class DataSeeder implements CommandLineRunner {
         student.setStatus("ACTIVE");
         userRepository.save(student);
 
-        // 4. Lecturer account
+        // 7. Lecturer account
         User lecturer = new User();
         lecturer.setUsername("lecturer");
         lecturer.setPassword(passwordEncoder.encode("Lecturer@123"));
@@ -86,18 +122,6 @@ public class DataSeeder implements CommandLineRunner {
         lecturer.setStatus("ACTIVE");
         userRepository.save(lecturer);
 
-        // 5. Department Manager account
-        User manager = new User();
-        manager.setUsername("manager");
-        manager.setPassword(passwordEncoder.encode("Manager@123"));
-        manager.setEmail("manager@sliit.lk");
-        manager.setFullName("David Davis (Dept Manager)");
-        manager.setRole(Role.DEPARTMENT_MANAGER);
-        manager.setDepartment("IT Services");
-        manager.setPhoneNumber("0770000005");
-        manager.setStatus("ACTIVE");
-        userRepository.save(manager);
-
-        System.out.println("✅ Default accounts seeded successfully (admin, agent, student, lecturer, manager).");
+        System.out.println("✅ All 7 proposal accounts seeded successfully (admin, agent, lead, km, manager, student, lecturer).");
     }
 }

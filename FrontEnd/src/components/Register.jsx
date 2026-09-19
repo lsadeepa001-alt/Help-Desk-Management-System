@@ -141,9 +141,6 @@ const Register = ({ onSuccess, onSwitchToLogin }) => {
             >
               <option value="STUDENT">🎓 Student</option>
               <option value="LECTURER">👨‍🏫 Lecturer / Faculty</option>
-              <option value="SUPPORT_AGENT">🛠️ Support Agent</option>
-              <option value="DEPARTMENT_MANAGER">👔 Department Manager</option>
-              <option value="ADMIN">👑 System Administrator</option>
             </select>
           </div>
 

@@ -26,29 +26,23 @@ import KnowledgeBase from './components/KnowledgeBase';
 const API_BASE = 'http://localhost:8080/api';
 
 // ── Role groups for route permissions ──
+// ── Role groups for route permissions ──
 const STAFF_ROLES = [
   ROLES.SUPPORT_AGENT,
   ROLES.TEAM_LEAD,
-  ROLES.ADMIN,
-  ROLES.DEPARTMENT_MANAGER,
-  ROLES.EXECUTIVE,
-  'SYSTEM_ADMINISTRATOR',
+  ROLES.SYSTEM_ADMINISTRATOR,
 ];
 
 const AGENT_ROLES = [
   ROLES.SUPPORT_AGENT,
   ROLES.TEAM_LEAD,
-  ROLES.ADMIN,
-  ROLES.DEPARTMENT_MANAGER,
-  'SYSTEM_ADMINISTRATOR',
+  ROLES.SYSTEM_ADMINISTRATOR,
 ];
 
 const ANALYTICS_ROLES = [
   ROLES.TEAM_LEAD,
-  ROLES.ADMIN,
-  ROLES.DEPARTMENT_MANAGER,
-  ROLES.EXECUTIVE,
-  'SYSTEM_ADMINISTRATOR',
+  ROLES.MANAGER_EXECUTIVE,
+  ROLES.SYSTEM_ADMINISTRATOR,
 ];
 
 // ── App Shell (Layout with Navbar + Footer for authenticated routes) ──
@@ -86,10 +80,10 @@ function AppShell() {
             </ProtectedRoute>
           } />
 
-          {/* ── All Tickets (Staff, Managers, Admins only) ── */}
+          {/* ── All Tickets (Support Staff, Team Leads, System Admin only) ── */}
           <Route path="/tickets" element={
             <ProtectedRoute>
-              <RoleBasedRoute allowedRoles={[...STAFF_ROLES, ROLES.KNOWLEDGE_MANAGER]}>
+              <RoleBasedRoute allowedRoles={STAFF_ROLES}>
                 <div className="mb-8 p-6 rounded-3xl bg-gradient-to-r from-indigo-900/40 via-slate-800/80 to-purple-900/40 border border-slate-700/50 relative overflow-hidden shadow-2xl">
                   <div className="relative z-10 max-w-2xl">
                     <span className="inline-block px-3 py-1 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-full text-xs font-semibold uppercase tracking-wider mb-2">
@@ -134,10 +128,10 @@ function AppShell() {
             </ProtectedRoute>
           } />
 
-          {/* ── Agent Dashboard ── */}
+          {/* ── Agent Dashboard / Work Queue ── */}
           <Route path="/dashboard" element={
             <ProtectedRoute>
-              <RoleBasedRoute allowedRoles={[...AGENT_ROLES, ROLES.EXECUTIVE]}>
+              <RoleBasedRoute allowedRoles={AGENT_ROLES}>
                 <AgentDashboard onViewTicket={(id) => navigate(`/tickets/${id}`)} />
               </RoleBasedRoute>
             </ProtectedRoute>
@@ -146,7 +140,7 @@ function AppShell() {
           {/* ── CSAT Dashboard ── */}
           <Route path="/csat" element={
             <ProtectedRoute>
-              <RoleBasedRoute allowedRoles={[...STAFF_ROLES]}>
+              <RoleBasedRoute allowedRoles={[ROLES.SUPPORT_AGENT, ROLES.TEAM_LEAD, ROLES.MANAGER_EXECUTIVE, ROLES.SYSTEM_ADMINISTRATOR]}>
                 <CSATDashboard />
               </RoleBasedRoute>
             </ProtectedRoute>
@@ -155,7 +149,7 @@ function AppShell() {
           {/* ── Analytics & Reports ── */}
           <Route path="/analytics" element={
             <ProtectedRoute>
-              <RoleBasedRoute allowedRoles={[...ANALYTICS_ROLES]}>
+              <RoleBasedRoute allowedRoles={ANALYTICS_ROLES}>
                 <AnalyticsDashboard />
               </RoleBasedRoute>
             </ProtectedRoute>
@@ -171,7 +165,7 @@ function AppShell() {
           {/* ── KB Manage ── */}
           <Route path="/knowledge-base/manage" element={
             <ProtectedRoute>
-              <RoleBasedRoute allowedRoles={[ROLES.KNOWLEDGE_MANAGER, ROLES.ADMIN, 'SYSTEM_ADMINISTRATOR']}>
+              <RoleBasedRoute allowedRoles={[ROLES.KNOWLEDGE_MANAGER, ROLES.SYSTEM_ADMINISTRATOR]}>
                 <KnowledgeBase />
               </RoleBasedRoute>
             </ProtectedRoute>
@@ -180,7 +174,7 @@ function AppShell() {
           {/* ── Admin Users & Role Management ── */}
           <Route path="/admin/users" element={
             <ProtectedRoute>
-              <RoleBasedRoute allowedRoles={[ROLES.ADMIN, 'SYSTEM_ADMINISTRATOR']}>
+              <RoleBasedRoute allowedRoles={[ROLES.SYSTEM_ADMINISTRATOR]}>
                 <AdminUsersView />
               </RoleBasedRoute>
             </ProtectedRoute>
@@ -432,9 +426,10 @@ function AdminUsersView() {
                         <option value="STUDENT">🎓 STUDENT</option>
                         <option value="LECTURER">👨‍🏫 LECTURER</option>
                         <option value="SUPPORT_AGENT">🛠️ SUPPORT_AGENT</option>
-                        <option value="DEPARTMENT_MANAGER">👔 DEPARTMENT_MANAGER</option>
-                        <option value="ADMIN">👑 ADMIN</option>
+                        <option value="TEAM_LEAD">👥 TEAM_LEAD</option>
+                        <option value="KNOWLEDGE_MANAGER">📚 KNOWLEDGE_MANAGER</option>
                         <option value="SYSTEM_ADMINISTRATOR">👑 SYSTEM_ADMINISTRATOR</option>
+                        <option value="MANAGER_EXECUTIVE">👔 MANAGER_EXECUTIVE</option>
                       </select>
                     </td>
                     <td className="px-6 py-4">
@@ -561,11 +556,12 @@ function AdminUsersView() {
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   >
                     <option value="SUPPORT_AGENT">🛠️ SUPPORT_AGENT</option>
-                    <option value="DEPARTMENT_MANAGER">👔 DEPARTMENT_MANAGER</option>
+                    <option value="TEAM_LEAD">👥 TEAM_LEAD</option>
+                    <option value="KNOWLEDGE_MANAGER">📚 KNOWLEDGE_MANAGER</option>
+                    <option value="MANAGER_EXECUTIVE">👔 MANAGER_EXECUTIVE</option>
+                    <option value="SYSTEM_ADMINISTRATOR">👑 SYSTEM_ADMINISTRATOR</option>
                     <option value="LECTURER">👨‍🏫 LECTURER</option>
                     <option value="STUDENT">🎓 STUDENT</option>
-                    <option value="ADMIN">👑 ADMIN</option>
-                    <option value="SYSTEM_ADMINISTRATOR">👑 SYSTEM_ADMINISTRATOR</option>
                   </select>
                 </div>
                 <div>

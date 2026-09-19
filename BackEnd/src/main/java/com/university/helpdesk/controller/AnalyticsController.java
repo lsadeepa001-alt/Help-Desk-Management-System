@@ -21,23 +21,23 @@ public class AnalyticsController {
         this.analyticsService = analyticsService;
     }
 
-    // ─── GET SUMMARY METRICS (Managers, Admins, and Support Agents) ────────────
+    // ─── GET SUMMARY METRICS (Managers, Team Leads, and Admins) ──────────────
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR', 'SUPPORT_AGENT')")
+    @PreAuthorize("hasAnyRole('MANAGER_EXECUTIVE', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Map<String, Object>> getSummary() {
         return ResponseEntity.ok(analyticsService.getSummary());
     }
 
-    // ─── GET AGENT PERFORMANCE (Department Managers & Admins only) ────────────
+    // ─── GET AGENT PERFORMANCE (Team Leads, Managers & Admins) ────────────────
     @GetMapping("/agent-performance")
-    @PreAuthorize("hasAnyRole('DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('TEAM_LEAD', 'MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<List<Map<String, Object>>> getAgentPerformance() {
         return ResponseEntity.ok(analyticsService.getAgentPerformance());
     }
 
-    // ─── EXPORT CSV REPORT (Department Managers & Admins only) ────────────────
+    // ─── EXPORT CSV REPORT (Managers & Admins only) ───────────────────────────
     @GetMapping(value = "/export/csv", produces = "text/csv")
-    @PreAuthorize("hasAnyRole('DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<String> exportCsvReport() {
         String csvData = analyticsService.generateCsvReport();
 

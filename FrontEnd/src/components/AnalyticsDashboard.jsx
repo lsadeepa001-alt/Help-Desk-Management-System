@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 const API = 'http://localhost:8080/api';
 
@@ -25,6 +26,8 @@ export default function AnalyticsDashboard() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const { showToast } = useToast();
+  const { user } = useAuth();
+  const canExportCsv = user?.role === 'MANAGER_EXECUTIVE' || user?.role === 'SYSTEM_ADMINISTRATOR';
 
   useEffect(() => {
     fetchAnalyticsData();
@@ -98,14 +101,16 @@ export default function AnalyticsDashboard() {
         </div>
 
         <div className="flex gap-3">
-          <button
-            onClick={handleExportCsv}
-            disabled={exporting}
-            className="px-4 py-2.5 bg-emerald-600/90 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
-          >
-            <span>📥</span>
-            <span>{exporting ? 'Generating CSV...' : 'Export CSV Report'}</span>
-          </button>
+          {canExportCsv && (
+            <button
+              onClick={handleExportCsv}
+              disabled={exporting}
+              className="px-4 py-2.5 bg-emerald-600/90 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+            >
+              <span>📥</span>
+              <span>{exporting ? 'Generating CSV...' : 'Export CSV Report'}</span>
+            </button>
+          )}
 
           <button
             onClick={handlePrintPdf}

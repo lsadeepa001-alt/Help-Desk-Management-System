@@ -71,9 +71,9 @@ public class KbController {
         return ResponseEntity.ok(article);
     }
 
-    // ─── CREATE / UPDATE ARTICLE (Staff, Managers, Admins) ──────────────────
+    // ─── CREATE / UPDATE ARTICLE (Knowledge Managers, Admins) ───────────────
     @PostMapping("/articles")
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('KNOWLEDGE_MANAGER', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<KnowledgeBaseArticle> saveArticle(@RequestBody Map<String, Object> body) {
         Long id = body.get("id") != null ? Long.valueOf(body.get("id").toString()) : null;
         String title = (String) body.get("title");
@@ -119,9 +119,9 @@ public class KbController {
         return ResponseEntity.status(id != null ? HttpStatus.OK : HttpStatus.CREATED).body(saved);
     }
 
-    // ─── DELETE ARTICLE (Staff, Managers, Admins) ────────────────────────────
+    // ─── DELETE ARTICLE (Knowledge Managers, Admins) ─────────────────────────
     @DeleteMapping("/articles/{id}")
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'DEPARTMENT_MANAGER', 'ADMIN', 'SYSTEM_ADMINISTRATOR')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('KNOWLEDGE_MANAGER', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Void> deleteArticle(@PathVariable Long id) {
         if (!articleRepository.existsById(id)) {
             return ResponseEntity.notFound().build();
