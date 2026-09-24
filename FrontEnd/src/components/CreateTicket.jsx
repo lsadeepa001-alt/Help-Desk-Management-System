@@ -159,6 +159,7 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
           setFormData({
             title: '',
             description: '',
+            department: 'IT',
             priority: 'MEDIUM',
             location: '',
             categoryId: '1',
@@ -177,6 +178,7 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
       setFormData({
         title: '',
         description: '',
+        department: 'IT',
         priority: 'MEDIUM',
         location: '',
         categoryId: '1',

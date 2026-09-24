@@ -4,18 +4,16 @@ import { useAuth } from '../context/AuthContext';
 
 const API = 'http://localhost:8080/api';
 
-const STATUS_OPTIONS = ['ALL', 'OPEN', 'ACCEPTED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED', 'CANCELLED', 'REJECTED'];
+const STATUS_OPTIONS = ['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED', 'CANCELLED'];
 const PRIORITY_OPTIONS = ['ALL', 'CRITICAL', 'URGENT', 'HIGH', 'MEDIUM', 'LOW'];
 
 const statusColors = {
   OPEN: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-  ACCEPTED: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
   IN_PROGRESS: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
   RESOLVED: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
   CLOSED: 'bg-slate-500/20 text-slate-400 border-slate-500/40',
   REOPENED: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
   CANCELLED: 'bg-rose-500/20 text-rose-300 border-rose-500/40 line-through',
-  REJECTED: 'bg-red-500/20 text-red-300 border-red-500/40',
 };
 
 const priorityColors = {

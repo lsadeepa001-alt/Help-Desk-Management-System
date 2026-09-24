@@ -209,7 +209,7 @@ public class RoleAccessAndAttachmentSecurityTest {
         agentUser.setDepartment("IT");
         userRepository.save(leadUser);
         userRepository.save(agentUser);
-        testTicket.setStatus(Status.ACCEPTED);
+        testTicket.setStatus(Status.OPEN);
         testTicket.setDepartment("IT");
         ticketRepository.save(testTicket);
 

@@ -7,13 +7,11 @@ const API = 'http://localhost:8080/api';
 
 const statusColors = {
   OPEN: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-  ACCEPTED: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
   IN_PROGRESS: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
   RESOLVED: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
   CLOSED: 'bg-slate-500/20 text-slate-400 border-slate-500/40',
   REOPENED: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
   CANCELLED: 'bg-rose-500/20 text-rose-300 border-rose-500/40 line-through',
-  REJECTED: 'bg-red-500/20 text-red-300 border-red-500/40',
 };
 
 const CATEGORIES = [
@@ -525,7 +523,7 @@ export default function TicketDetails({ ticketId, onBack }) {
         {canManageLifecycle && (
           <div className="pt-3 border-t border-slate-700/50 flex flex-wrap items-center gap-2">
             {/* Team Lead or Admin assignment dropdown for active stages */}
-            {(isTeamLead || isAdmin) && ['OPEN', 'ACCEPTED', 'IN_PROGRESS', 'REOPENED'].includes(ticket.status) && availableAgents.length > 0 && (
+            {(isTeamLead || isAdmin) && ['OPEN', 'IN_PROGRESS', 'REOPENED'].includes(ticket.status) && availableAgents.length > 0 && (
               <div className="flex items-center gap-1.5">
                 <select
                   value={selectedReassignAgentId}
@@ -556,8 +554,8 @@ export default function TicketDetails({ ticketId, onBack }) {
               </button>
             )}
 
-            {/* Start / Mark In Progress if assigned to me in OPEN or legacy ACCEPTED */}
-            {((ticket.status === 'OPEN' && isMine) || ticket.status === 'ACCEPTED') && (
+            {/* Start / Mark In Progress if assigned to me in OPEN */}
+            {ticket.status === 'OPEN' && isMine && (
               <button
                 onClick={() => changeStatus('IN_PROGRESS')}
                 className="px-3.5 py-1.5 bg-blue-600/80 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5"
@@ -593,16 +591,6 @@ export default function TicketDetails({ ticketId, onBack }) {
                 className="px-3 py-1.5 bg-amber-600/80 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg transition"
               >
                 🔄 Reopen
-              </button>
-            )}
-
-            {/* Admin reject moderation for OPEN tickets */}
-            {isAdmin && !isTicketCreator && ticket.status === 'OPEN' && (
-              <button
-                onClick={() => handleReview('reject')}
-                className="px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold rounded-lg transition"
-              >
-                ❌ Reject Ticket
               </button>
             )}
 

@@ -5,13 +5,11 @@ const API_URL = 'http://localhost:8080/api/tickets';
 
 const statusColors = {
   OPEN: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
-  ACCEPTED: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30',
   IN_PROGRESS: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
   RESOLVED: 'bg-purple-500/20 text-purple-400 border border-purple-500/30',
   CLOSED: 'bg-slate-500/20 text-slate-400 border border-slate-500/30',
   REOPENED: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
   CANCELLED: 'bg-rose-500/20 text-rose-400 border border-rose-500/30 line-through',
-  REJECTED: 'bg-red-500/20 text-red-400 border border-red-500/30',
 };
 
 const priorityColors = {
@@ -88,7 +86,7 @@ const TicketList = ({ refreshTrigger, onViewTicket, filterUserId }) => {
           </svg>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {['ALL', 'OPEN', 'ACCEPTED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED', 'CANCELLED', 'REJECTED'].map(st => (
+          {['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED', 'CANCELLED'].map(st => (
             <button key={st} onClick={() => setFilterStatus(st)}
               className={`px-3 py-2 text-xs font-semibold rounded-lg transition whitespace-nowrap ${
                 filterStatus === st
