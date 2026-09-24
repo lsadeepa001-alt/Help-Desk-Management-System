@@ -5,3 +5,12 @@
     @apply bg-slate-900 text-slate-100 font-sans antialiased min-h-screen;
   }
 }
+/* Hide horizontal scrollbar but keep scrolling functional */
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE / old Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;             /* Chrome, Edge, Safari */
+}

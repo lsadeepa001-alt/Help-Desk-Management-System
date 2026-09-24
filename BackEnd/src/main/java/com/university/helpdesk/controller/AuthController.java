@@ -2,16 +2,20 @@ package com.university.helpdesk.controller;
 
 import com.university.helpdesk.dto.JwtResponse;
 import com.university.helpdesk.dto.LoginRequest;
+import com.university.helpdesk.dto.PasswordResetRequest;
 import com.university.helpdesk.dto.RegisterRequest;
+import com.university.helpdesk.dto.ResetPasswordRequest;
 import com.university.helpdesk.model.Role;
 import com.university.helpdesk.model.User;
 import com.university.helpdesk.repository.UserRepository;
 import com.university.helpdesk.security.JwtUtils;
+import com.university.helpdesk.service.PasswordResetService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,15 +38,18 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
+    private final PasswordResetService passwordResetService;
 
     public AuthController(AuthenticationManager authenticationManager,
                           UserRepository userRepository,
                           PasswordEncoder passwordEncoder,
-                          JwtUtils jwtUtils) {
+                          JwtUtils jwtUtils,
+                          PasswordResetService passwordResetService) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtils = jwtUtils;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/register")
@@ -51,11 +58,14 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("message", "Error: Username is required!"));
         }
 
-        if (userRepository.findByUsername(registerRequest.getUsername()).isPresent()) {
+        String username = registerRequest.getUsername().trim();
+        String email = registerRequest.getEmail().trim();
+
+        if (userRepository.findByUsername(username).isPresent()) {
             return ResponseEntity.badRequest().body(Map.of("message", "Error: Username is already taken!"));
         }
 
-        if (registerRequest.getEmail() != null && userRepository.findByEmail(registerRequest.getEmail()).isPresent()) {
+        if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
             return ResponseEntity.badRequest().body(Map.of("message", "Error: Email is already in use!"));
         }
 
@@ -68,13 +78,13 @@ public class AuthController {
         }
 
         User user = new User();
-        user.setUsername(registerRequest.getUsername());
-        user.setEmail(registerRequest.getEmail());
+        user.setUsername(username);
+        user.setEmail(email);
         user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
-        user.setFullName(registerRequest.getFullName());
+        user.setFullName(registerRequest.getFullName().trim());
         user.setRole(userRole);
-        user.setDepartment(registerRequest.getDepartment());
-        user.setPhoneNumber(registerRequest.getPhoneNumber());
+        user.setDepartment(normalizeOptional(registerRequest.getDepartment()));
+        user.setPhoneNumber(normalizeOptional(registerRequest.getPhoneNumber()));
         user.setStatus("ACTIVE");
 
         User savedUser = userRepository.save(user);
@@ -95,22 +105,20 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         User user = userRepository.findByUsername(loginRequest.getUsernameOrEmail())
                 .orElseGet(() -> userRepository.findByEmail(loginRequest.getUsernameOrEmail())
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password")));
 
-        boolean passwordMatches = passwordEncoder.matches(loginRequest.getPassword(), user.getPassword());
-        if (!passwordMatches) {
-            // Check plain text fallback if seed user was saved in plain text
-            if (!loginRequest.getPassword().equals(user.getPassword())) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Invalid username or password"));
-            }
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(user.getUsername(), loginRequest.getPassword())
+            );
+        } catch (AuthenticationException exception) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Invalid username or password"));
         }
-
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(user.getUsername(), loginRequest.getPassword())
-        );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = jwtUtils.generateToken(user);
@@ -127,19 +135,22 @@ public class AuthController {
         ));
     }
 
-    @GetMapping("/me")
-    public ResponseEntity<?> getCurrentUser(@RequestHeader(value = "Authorization", required = false) String authHeader) {
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            if (jwtUtils.validateToken(token)) {
-                String username = jwtUtils.getUsernameFromToken(token);
-                User user = userRepository.findByUsername(username)
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-                return ResponseEntity.ok(user);
-            }
-        }
+    @PostMapping("/password-reset/request")
+    public ResponseEntity<?> requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
+        passwordResetService.requestReset(request.getEmail());
+        return ResponseEntity.ok(Map.of(
+                "message", "If an active account exists for that email, a password reset request has been created."
+        ));
+    }
 
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    @PostMapping("/password-reset/confirm")
+    public ResponseEntity<?> confirmPasswordReset(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request.getToken(), request.getNewPassword());
+        return ResponseEntity.ok(Map.of("message", "Password reset successfully. You can now sign in."));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(Authentication auth) {
         if (auth != null && auth.isAuthenticated() && !auth.getPrincipal().equals("anonymousUser")) {
             String username = auth.getName();
             User user = userRepository.findByUsername(username)
@@ -148,5 +159,11 @@ public class AuthController {
         }
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Not authenticated"));
+    }
+
+    private String normalizeOptional(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

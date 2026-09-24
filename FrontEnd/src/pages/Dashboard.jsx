@@ -7,11 +7,13 @@ const API = 'http://localhost:8080/api';
 
 const statusColors = {
   OPEN: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+  ACCEPTED: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
   IN_PROGRESS: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
   RESOLVED: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
   CLOSED: 'bg-slate-500/20 text-slate-400 border-slate-500/40',
   REOPENED: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
   CANCELLED: 'bg-rose-500/20 text-rose-300 border-rose-500/40 line-through',
+  REJECTED: 'bg-red-500/20 text-red-300 border-red-500/40',
 };
 
 export default function Dashboard() {
@@ -21,7 +23,7 @@ export default function Dashboard() {
   const [tickets, setTickets] = useState([]);
   const [kbArticles, setKbArticles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ total: 0, open: 0, inProgress: 0, resolved: 0, closed: 0, avgCsatRating: 0 });
+  const [stats, setStats] = useState({ total: 0, open: 0, accepted: 0, inProgress: 0, resolved: 0, closed: 0, avgCsatRating: 0 });
 
   const role = user?.role || 'STUDENT';
   const isEndUser = role === 'STUDENT' || role === 'LECTURER';
@@ -43,7 +45,8 @@ export default function Dashboard() {
           setStats({
             total: data.length,
             open: data.filter((t) => t.status === 'OPEN').length,
-            inProgress: data.filter((t) => t.status === 'IN_PROGRESS').length,
+            accepted: data.filter((t) => t.status === 'ACCEPTED').length,
+            inProgress: data.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'REOPENED').length,
             resolved: data.filter((t) => t.status === 'RESOLVED').length,
             closed: data.filter((t) => t.status === 'CLOSED').length,
           });
@@ -54,7 +57,8 @@ export default function Dashboard() {
           setStats({
             total: data.length,
             open: data.filter((t) => t.status === 'OPEN').length,
-            inProgress: data.filter((t) => t.status === 'IN_PROGRESS').length,
+            accepted: data.filter((t) => t.status === 'ACCEPTED').length,
+            inProgress: data.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'REOPENED').length,
             resolved: data.filter((t) => t.status === 'RESOLVED').length,
             closed: data.filter((t) => t.status === 'CLOSED').length,
           });
@@ -64,6 +68,7 @@ export default function Dashboard() {
           setStats({
             total: d.totalTickets || 0,
             open: d.openTickets || 0,
+            accepted: d.acceptedTickets || 0,
             inProgress: d.inProgressTickets || 0,
             resolved: d.resolvedTickets || 0,
             closed: 0,
@@ -77,6 +82,7 @@ export default function Dashboard() {
           setStats({
             total: data.length,
             open: data.filter((article) => article.isFaq).length,
+            accepted: 0,
             inProgress: totalViews,
             resolved: data.length > 0 ? Math.round(totalViews / data.length) : 0,
             closed: 0,
@@ -125,7 +131,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── KPI Stats Strip ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-2 ${isKm ? 'sm:grid-cols-4' : 'sm:grid-cols-5'} gap-4`}>
         {isKm ? [
           { label: 'Total Articles', value: stats.total, color: 'text-indigo-400', bg: 'bg-slate-800/80' },
           { label: 'FAQ Articles', value: stats.open, color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/30' },
@@ -138,7 +144,8 @@ export default function Dashboard() {
           </div>
         )) : [
           { label: isEndUser ? 'My Tickets' : 'Total Tickets', value: stats.total, color: 'text-indigo-400', bg: 'bg-slate-800/80' },
-          { label: 'Open Issues', value: stats.open, color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/30' },
+          { label: 'Awaiting Review', value: stats.open, color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/30' },
+          { label: 'Accepted / Routed', value: stats.accepted, color: 'text-cyan-400', bg: 'bg-cyan-950/20 border-cyan-800/30' },
           { label: 'In Progress', value: stats.inProgress, color: 'text-blue-400', bg: 'bg-blue-950/20 border-blue-800/30' },
           { label: isManager ? 'CSAT Rating' : 'Resolved / Closed', value: isManager ? (stats.avgCsatRating > 0 ? `${stats.avgCsatRating} / 5` : 'N/A') : (stats.resolved + stats.closed), color: 'text-purple-400', bg: 'bg-purple-950/20 border-purple-800/30' },
         ].map((item, idx) => (

@@ -4,12 +4,37 @@ import { useAuth } from '../context/AuthContext';
 
 const API_URL = 'http://localhost:8080/api/tickets';
 
+const DEPARTMENT_CATEGORIES = {
+  IT: [
+    { id: 1, name: 'Network & Wi-Fi' },
+    { id: 2, name: 'LMS & Student Portal' },
+    { id: 3, name: 'Hardware & Lab Equipment' },
+    { id: 4, name: 'Software & Licensing' },
+    { id: 5, name: 'Account & Security' },
+  ],
+  MAINTENANCE: [
+    { id: 1, name: 'Air Conditioning & HVAC' },
+    { id: 2, name: 'Electrical & Lighting' },
+    { id: 3, name: 'Plumbing & Water Facilities' },
+    { id: 4, name: 'Classroom Furniture & Fixtures' },
+    { id: 5, name: 'Building Maintenance & Cleaning' },
+  ],
+  SECURITY: [
+    { id: 1, name: 'Campus Access & Keycard' },
+    { id: 2, name: 'Lost & Found Property' },
+    { id: 3, name: 'Parking & Vehicle Pass' },
+    { id: 4, name: 'Emergency & Incident Reporting' },
+    { id: 5, name: 'Surveillance & Safety Concern' },
+  ],
+};
+
 const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
   const { user, isAuthenticated } = useAuth();
 
   const [formData, setFormData] = useState({
     title: prefillData?.title || '',
     description: prefillData?.description || '',
+    department: 'IT',
     priority: 'MEDIUM',
     location: '',
     categoryId: '1',
@@ -28,17 +53,20 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  const categories = [
-    { id: 1, name: 'Network & Wi-Fi' },
-    { id: 2, name: 'LMS & Student Portal' },
-    { id: 3, name: 'Hardware & Lab Equipment' },
-    { id: 4, name: 'Software & Licensing' },
-    { id: 5, name: 'Account & Security' },
-  ];
+  const activeCategories = DEPARTMENT_CATEGORIES[formData.department] || DEPARTMENT_CATEGORIES.IT;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === 'department') {
+      const newCats = DEPARTMENT_CATEGORIES[value] || DEPARTMENT_CATEGORIES.IT;
+      setFormData(prev => ({
+        ...prev,
+        department: value,
+        categoryId: String(newCats[0]?.id || 1),
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -98,6 +126,7 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
       ticketNumber: generatedTicketNum,
       title: formData.title,
       description: formData.description,
+      department: formData.department,
       priority: formData.priority,
       status: 'OPEN',
       location: formData.location || 'Campus Main Building',
@@ -262,8 +291,25 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
           ></textarea>
         </div>
 
-        {/* Category & Priority Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Department, Category & Urgency Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              Department <span className="text-rose-400">*</span>
+            </label>
+            <select
+              name="department"
+              value={formData.department}
+              onChange={handleChange}
+              className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm transition"
+              required
+            >
+              <option value="IT">💻 IT Services</option>
+              <option value="MAINTENANCE">🔧 Maintenance</option>
+              <option value="SECURITY">🛡️ Campus Security</option>
+            </select>
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
               Category
@@ -274,7 +320,7 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
               onChange={handleChange}
               className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm transition"
             >
-              {categories.map((cat) => (
+              {activeCategories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.name}
                 </option>
@@ -284,7 +330,7 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-              Priority Level
+              Urgency / Priority
             </label>
             <select
               name="priority"
@@ -295,7 +341,6 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
               <option value="LOW">Low - Routine issue</option>
               <option value="MEDIUM">Medium - Normal priority</option>
               <option value="HIGH">High - Urgent academic blocker</option>
-              <option value="URGENT">Urgent - System wide outage</option>
             </select>
           </div>
         </div>

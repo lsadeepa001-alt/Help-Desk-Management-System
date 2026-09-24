@@ -12,9 +12,11 @@ USE helpdesk_db;
 -- 1. Users Table
 -- Stores all university members (Students, Lecturers/Faculty, IT Support, Admins)
 -- ----------------------------------------------------------------------------
+DROP TABLE IF EXISTS ticket_attachments;
 DROP TABLE IF EXISTS ticket_comments;
 DROP TABLE IF EXISTS tickets;
 DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS password_reset_tokens;
 DROP TABLE IF EXISTS users;
 
 CREATE TABLE users (
@@ -27,11 +29,25 @@ CREATE TABLE users (
     department VARCHAR(100) DEFAULT NULL, -- e.g., 'Faculty of Computing', 'Library', 'Registrar'
     phone_number VARCHAR(20) DEFAULT NULL,
     status ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'ACTIVE',
+    token_version INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_users_username (username),
     INDEX idx_users_email (email),
     INDEX idx_users_role (role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE password_reset_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    token_hash CHAR(64) NULL UNIQUE,
+    expires_at TIMESTAMP NULL,
+    issued_at TIMESTAMP NULL,
+    used_at TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_password_reset_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_password_reset_user (user_id),
+    INDEX idx_password_reset_expiry (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
@@ -110,7 +126,7 @@ CREATE TABLE ticket_attachments (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
--- Seed Sample Data for Testing & Initial Setup (Strict Proposal Roles)
+-- Required Reference Data
 -- ============================================================================
 
 -- Seed Categories
@@ -121,31 +137,12 @@ INSERT INTO categories (name, description) VALUES
 ('Software & Licensing', 'Software installation, MATLAB, SPSS, Office 365 license requests'),
 ('Account & Security', 'Password resets, 2FA, unauthorized access, email access');
 
--- Seed Users (All 7 concrete proposal roles seeded)
-INSERT INTO users (username, password, email, full_name, role, department, phone_number) VALUES
-('admin', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'admin@university.edu', 'System Administrator', 'SYSTEM_ADMINISTRATOR', 'IT Operations', '+1-555-0100'),
-('agent', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'agent@university.edu', 'Support Agent', 'SUPPORT_AGENT', 'IT Help Desk', '+1-555-0101'),
-('lead', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'lead@university.edu', 'Support Team Lead', 'TEAM_LEAD', 'IT Help Desk', '+1-555-0103'),
-('km', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'km@university.edu', 'Knowledge Manager', 'KNOWLEDGE_MANAGER', 'Library & KB', '+1-555-0104'),
-('manager', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'manager@university.edu', 'Executive Manager', 'MANAGER_EXECUTIVE', 'Management', '+1-555-0105'),
-('prof_smith', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'smith@university.edu', 'Prof. Robert Smith', 'LECTURER', 'Faculty of Computing', '+1-555-0201'),
-('std_kamal', '$2a$10$e8W/hB6u7gJt2aX9yD3Q.O4Zk/X7q1V3q6E.Z.Z9a0b1c2d3e4f5', 'kamal.p@student.university.edu', 'Kamal Perera', 'STUDENT', 'Software Engineering', '+1-555-0301');
-
--- Seed Sample Tickets
-INSERT INTO tickets (ticket_number, title, description, category_id, priority, status, created_by, assigned_to, location) VALUES
-('TICK-2026-0001', 'Unable to connect to Campus Wi-Fi in Main Library', 'My laptop cannot authenticate to Uni-Secure-WiFi on 2nd floor library.', 1, 'HIGH', 'IN_PROGRESS', 7, 2, 'Library 2nd Floor'),
-('TICK-2026-0002', 'Lab 04 Projector Screen Flickering', 'The HDMI connection to the projector in Lab 04 keeps cutting out during lectures.', 3, 'MEDIUM', 'OPEN', 6, NULL, 'Building B - Lab 04'),
-('TICK-2026-0003', 'MATLAB License Renewal Required', 'Please renew the student license for MATLAB 2025b for Machine Learning course.', 4, 'LOW', 'RESOLVED', 7, 2, 'Online Request');
-
--- Seed Ticket Comments
-INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal) VALUES
-(1, 2, 'Hi Kamal, we are checking the access point logs for Library 2nd Floor.', FALSE),
-(1, 7, 'Thank you! The issue is specifically happening between 10 AM and 12 PM.', FALSE),
-(1, 2, 'Investigated AP-LIB-02; reconfigured DHCP scope limit.', TRUE);
-
 -- ============================================================================
 -- Migration Statements for Existing Environments
 -- ============================================================================
 -- Execute these statements if updating an existing deployment with legacy roles:
 -- UPDATE users SET role = 'SYSTEM_ADMINISTRATOR' WHERE role = 'ADMIN';
 -- UPDATE users SET role = 'MANAGER_EXECUTIVE' WHERE role = 'DEPARTMENT_MANAGER';
+-- ALTER TABLE password_reset_tokens MODIFY token_hash CHAR(64) NULL;
+-- ALTER TABLE password_reset_tokens MODIFY expires_at TIMESTAMP NULL;
+-- ALTER TABLE password_reset_tokens ADD COLUMN issued_at TIMESTAMP NULL AFTER expires_at;

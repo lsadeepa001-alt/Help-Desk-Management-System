@@ -7,11 +7,13 @@ const API = 'http://localhost:8080/api';
 
 const statusColors = {
   OPEN: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+  ACCEPTED: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
   IN_PROGRESS: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
   RESOLVED: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
   CLOSED: 'bg-slate-500/20 text-slate-400 border-slate-500/40',
   REOPENED: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
   CANCELLED: 'bg-rose-500/20 text-rose-300 border-rose-500/40 line-through',
+  REJECTED: 'bg-red-500/20 text-red-300 border-red-500/40',
 };
 
 const CATEGORIES = [
@@ -41,7 +43,12 @@ const roleColors = {
 };
 
 const STAFF_ROLES = ['SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR'];
-const LEAD_OR_ADMIN_ROLES = ['TEAM_LEAD', 'SYSTEM_ADMINISTRATOR'];
+
+const getApiErrorMessage = (error) => {
+  const responseData = error.response?.data;
+  if (typeof responseData === 'string' && responseData.trim()) return responseData;
+  return responseData?.message || responseData?.detail || responseData?.error || error.message;
+};
 
 export default function TicketDetails({ ticketId, onBack }) {
   const { user, isAuthenticated } = useAuth();
@@ -58,16 +65,20 @@ export default function TicketDetails({ ticketId, onBack }) {
   const [isInternalNote, setIsInternalNote] = useState(false);
 
   const isStaff = isAuthenticated && STAFF_ROLES.includes(user?.role);
-  const isLeadOrAdmin = isAuthenticated && LEAD_OR_ADMIN_ROLES.includes(user?.role);
+  const isAdmin = isAuthenticated && user?.role === 'SYSTEM_ADMINISTRATOR';
+  const isTeamLead = isAuthenticated && user?.role === 'TEAM_LEAD';
+  const isSupportAgent = isAuthenticated && user?.role === 'SUPPORT_AGENT';
   const isAgent = isStaff;
   const isTicketCreator = isAuthenticated && ticket?.createdBy?.id === user?.id;
+  const isTerminal = ticket?.status === 'CANCELLED' || ticket?.status === 'REJECTED';
 
   const [attachments, setAttachments] = useState([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [attachmentError, setAttachmentError] = useState('');
   const [availableAgents, setAvailableAgents] = useState([]);
   const [selectedReassignAgentId, setSelectedReassignAgentId] = useState('');
-  const canUploadAttachment = (isTicketCreator && ticket?.status === 'OPEN') || isStaff;
+  const [selectedRouteDepartment, setSelectedRouteDepartment] = useState('IT');
+  const canUploadAttachment = (isTicketCreator && ticket?.status === 'OPEN') || (isStaff && !isTerminal);
 
   const [myFeedback, setMyFeedback] = useState(null);
   const [csatMode, setCsatMode] = useState('create');
@@ -126,14 +137,14 @@ export default function TicketDetails({ ticketId, onBack }) {
   }, [ticketId]);
 
   const fetchAgents = useCallback(async () => {
-    if (!isLeadOrAdmin) return;
+    if (!isTeamLead && !isAdmin) return;
     try {
       const res = await axios.get(`${API}/users/agents`);
       setAvailableAgents(Array.isArray(res.data) ? res.data : []);
     } catch {
       // silently fail
     }
-  }, [isLeadOrAdmin]);
+  }, [isTeamLead, isAdmin]);
 
   useEffect(() => {
     setLoading(true);
@@ -190,14 +201,24 @@ export default function TicketDetails({ ticketId, onBack }) {
     }
   };
 
+  const handleClaimTicket = async () => {
+    try {
+      const res = await axios.put(`${API}/tickets/${ticketId}/claim`);
+      setTicket(res.data);
+      setStatusMsg('✅ Ticket claimed! You are now working on this ticket.');
+    } catch (err) {
+      setStatusMsg('Failed to claim ticket: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
   const handleReassignTicket = async (agentId) => {
     try {
       const res = await axios.put(`${API}/tickets/${ticketId}/assign`, { agentId: Number(agentId) });
       setTicket(res.data);
-      setStatusMsg('Ticket reassigned successfully.');
+      setStatusMsg('Ticket assigned successfully.');
       setSelectedReassignAgentId('');
     } catch (err) {
-      setStatusMsg('Failed to reassign: ' + (err.response?.data?.message || err.message));
+      setStatusMsg('Failed to assign ticket: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -213,20 +234,25 @@ export default function TicketDetails({ ticketId, onBack }) {
   }, [ticket?.status, isTicketCreator, myFeedback, csatSubmitted]);
 
   const changeStatus = async (newStatus, notes = '') => {
+    if (newStatus === 'RESOLVED' && (!notes || !notes.trim())) {
+      setStatusMsg('Resolution notes are required when resolving a ticket.');
+      return;
+    }
     try {
       const body = { status: newStatus };
-      if (notes) body.resolutionNotes = notes;
+      if (notes) body.resolutionNotes = notes.trim();
       const res = await axios.put(`${API}/tickets/${ticketId}/status`, body);
       setTicket(res.data);
       setShowResolveInput(false);
       setResolutionNote('');
+      setStatusMsg(`Ticket status updated to ${newStatus}.`);
       // Trigger CSAT modal for ticket submitter when resolved
       if (newStatus === 'RESOLVED' && canRateCsat) {
         setCsatMode('create');
         setTimeout(() => setShowCsatModal(true), 600);
       }
-    } catch {
-      setStatusMsg('Status update failed.');
+    } catch (err) {
+      setStatusMsg('Status update failed: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -260,13 +286,49 @@ export default function TicketDetails({ ticketId, onBack }) {
   };
 
   const handleCancelTicket = async () => {
-    if (!window.confirm('Are you sure you want to cancel this ticket?')) return;
+    if (!window.confirm('Are you sure you want to cancel this ticket? The ticket record will be retained.')) return;
     try {
       const res = await axios.delete(`${API}/tickets/${ticketId}`);
       if (res.data) setTicket(res.data);
       setStatusMsg('Ticket cancelled successfully.');
     } catch (err) {
-      setStatusMsg('Failed to cancel ticket: ' + (err.response?.data?.message || err.message));
+      const responseData = err.response?.data;
+      const backendMessage = typeof responseData === 'string'
+        ? responseData
+        : responseData?.message || responseData?.error || responseData?.detail;
+      setStatusMsg('Failed to cancel ticket: ' + (backendMessage || err.message));
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!window.confirm('Permanently delete this ticket and all of its attachments, comments, feedback, and notifications? This cannot be undone.')) return;
+    try {
+      await axios.delete(`${API}/tickets/${ticketId}/permanent`);
+      onBack?.();
+    } catch (err) {
+      setStatusMsg('Failed to permanently delete ticket: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleReview = async (decision) => {
+    const action = decision === 'accept' ? 'accept' : 'reject';
+    if (!window.confirm(`Are you sure you want to ${action} this ticket?`)) return;
+    try {
+      const res = await axios.put(`${API}/tickets/${ticketId}/${action}`);
+      setTicket(res.data);
+      setStatusMsg(`Ticket ${action}ed successfully.`);
+    } catch (err) {
+      setStatusMsg(`Failed to ${action} ticket: ` + getApiErrorMessage(err));
+    }
+  };
+
+  const handleRouteTicket = async () => {
+    try {
+      const res = await axios.put(`${API}/tickets/${ticketId}/route`, { department: selectedRouteDepartment });
+      setTicket(res.data);
+      setStatusMsg(`Ticket routed to ${res.data.department}.`);
+    } catch (err) {
+      setStatusMsg('Failed to route ticket: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -311,15 +373,6 @@ export default function TicketDetails({ ticketId, onBack }) {
     && (ticket?.status === 'RESOLVED' || ticket?.status === 'CLOSED')
     && !myFeedback && !csatSubmitted;
 
-  const assignToMe = async () => {
-    try {
-      const res = await axios.put(`${API}/tickets/${ticketId}/assign`, { agentId: user.id });
-      setTicket(res.data);
-    } catch {
-      setStatusMsg('Assignment failed.');
-    }
-  };
-
   const postComment = async (e) => {
     e.preventDefault();
     if (!commentText.trim() || !isAuthenticated) return;
@@ -360,7 +413,11 @@ export default function TicketDetails({ ticketId, onBack }) {
   );
 
   const isMine = isAuthenticated && ticket.assignedTo?.id === user?.id;
-  const canAct = isAgent;
+  const canManageLifecycle = !isTerminal && (
+    isTeamLead ||
+    isSupportAgent ||
+    isAdmin
+  );
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -394,12 +451,18 @@ export default function TicketDetails({ ticketId, onBack }) {
         {/* Metadata grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-700/50 text-xs text-slate-400">
           <div>
+            <div className="text-slate-500 uppercase tracking-wider mb-1">Technical Section</div>
+            <div className="text-slate-200 font-semibold text-sm text-indigo-300">
+              {ticket.department || <span className="text-slate-500 italic font-normal">Awaiting routing</span>}
+            </div>
+          </div>
+          <div>
             <div className="text-slate-500 uppercase tracking-wider mb-1">Category</div>
             <div className="text-slate-200 font-medium">{ticket.category?.name || '—'}</div>
           </div>
           <div>
-            <div className="text-slate-500 uppercase tracking-wider mb-1">Department</div>
-            <div className="text-slate-200 font-medium">{ticket.department || ticket.createdBy?.department || '—'}</div>
+            <div className="text-slate-500 uppercase tracking-wider mb-1">Requester Department</div>
+            <div className="text-slate-200 font-medium">{ticket.createdBy?.department || '—'}</div>
           </div>
           <div>
             <div className="text-slate-500 uppercase tracking-wider mb-1">Location</div>
@@ -410,8 +473,8 @@ export default function TicketDetails({ ticketId, onBack }) {
             <div className="text-slate-200 font-medium">{ticket.createdBy?.fullName || '—'}</div>
           </div>
           <div>
-            <div className="text-slate-500 uppercase tracking-wider mb-1">Assigned To</div>
-            <div className="text-slate-200 font-medium">{ticket.assignedTo?.fullName || <span className="text-slate-500 italic">Unassigned</span>}</div>
+            <div className="text-slate-500 uppercase tracking-wider mb-1">Assigned Agent</div>
+            <div className="text-slate-200 font-medium">{ticket.assignedTo?.fullName || <span className="text-amber-400/80 italic font-normal">Unassigned</span>}</div>
           </div>
           <div>
             <div className="text-slate-500 uppercase tracking-wider mb-1">Created</div>
@@ -432,16 +495,37 @@ export default function TicketDetails({ ticketId, onBack }) {
           </div>
         )}
 
-        {/* Action Buttons – Agent / Lead / Admin */}
-        {canAct && (
-          <div className="pt-3 border-t border-slate-700/50 flex flex-wrap items-center gap-2">
-            {!isMine && ticket.status !== 'CLOSED' && ticket.status !== 'RESOLVED' && (
-              <button onClick={assignToMe}
-                className="px-3 py-1.5 bg-indigo-600/80 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition">
-                📋 Assign to Me
+        {/* Fallback route for legacy tickets missing a department */}
+        {isAdmin && !ticket.department && !isTerminal && (
+          <div className="pt-3 border-t border-slate-700/50 space-y-2">
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              Route to Technical Section
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={selectedRouteDepartment}
+                onChange={(e) => setSelectedRouteDepartment(e.target.value)}
+                className="bg-slate-900 border border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="IT">IT</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Security">Security</option>
+              </select>
+              <button
+                onClick={handleRouteTicket}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition"
+              >
+                Route Ticket
               </button>
-            )}
-            {isLeadOrAdmin && ticket.status !== 'CLOSED' && availableAgents.length > 0 && (
+            </div>
+          </div>
+        )}
+
+        {/* Operational lifecycle actions for Staff (Team Lead, Support Agent, Admin) */}
+        {canManageLifecycle && (
+          <div className="pt-3 border-t border-slate-700/50 flex flex-wrap items-center gap-2">
+            {/* Team Lead or Admin assignment dropdown for active stages */}
+            {(isTeamLead || isAdmin) && ['OPEN', 'ACCEPTED', 'IN_PROGRESS', 'REOPENED'].includes(ticket.status) && availableAgents.length > 0 && (
               <div className="flex items-center gap-1.5">
                 <select
                   value={selectedReassignAgentId}
@@ -452,43 +536,90 @@ export default function TicketDetails({ ticketId, onBack }) {
                   }}
                   className="bg-slate-900 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="">👤 Reassign Agent...</option>
+                  <option value="">👤 {ticket.assignedTo ? 'Reassign Agent...' : 'Assign Agent...'}</option>
                   {availableAgents.map((ag) => (
                     <option key={ag.id} value={ag.id}>
-                      {ag.fullName || ag.username}
+                      {ag.fullName || ag.username} {ag.department ? `(${ag.department})` : ''}
                     </option>
                   ))}
                 </select>
               </div>
             )}
-            {ticket.status === 'OPEN' && (
-              <button onClick={() => changeStatus('IN_PROGRESS')}
-                className="px-3 py-1.5 bg-blue-600/80 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition">
-                ▶ Mark In Progress
+
+            {/* Support Agent self-claim for unassigned OPEN ticket */}
+            {isSupportAgent && ticket.status === 'OPEN' && !ticket.assignedTo && (
+              <button
+                onClick={handleClaimTicket}
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-md shadow-emerald-500/20"
+              >
+                ▶ Claim Ticket
               </button>
             )}
-            {(ticket.status === 'IN_PROGRESS' || ticket.status === 'OPEN') && !showResolveInput && (
-              <button onClick={() => setShowResolveInput(true)}
-                className="px-3 py-1.5 bg-purple-600/80 hover:bg-purple-500 text-white text-xs font-semibold rounded-lg transition">
-                ✅ Resolve
+
+            {/* Start / Mark In Progress if assigned to me in OPEN or legacy ACCEPTED */}
+            {((ticket.status === 'OPEN' && isMine) || ticket.status === 'ACCEPTED') && (
+              <button
+                onClick={() => changeStatus('IN_PROGRESS')}
+                className="px-3.5 py-1.5 bg-blue-600/80 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5"
+              >
+                ▶ Start Progress
               </button>
             )}
-            {ticket.status === 'RESOLVED' && (
-              <button onClick={() => changeStatus('CLOSED')}
-                className="px-3 py-1.5 bg-slate-600/80 hover:bg-slate-500 text-white text-xs font-semibold rounded-lg transition">
+
+            {/* Resolve with mandatory notes */}
+            {['IN_PROGRESS', 'REOPENED'].includes(ticket.status) && (isMine || isTeamLead || isAdmin) && !showResolveInput && (
+              <button
+                onClick={() => setShowResolveInput(true)}
+                className="px-3.5 py-1.5 bg-purple-600/80 hover:bg-purple-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5"
+              >
+                ✅ Resolve Ticket
+              </button>
+            )}
+
+            {/* Close directly by Staff / Admin */}
+            {ticket.status === 'RESOLVED' && (isTeamLead || isAdmin) && (
+              <button
+                onClick={() => changeStatus('CLOSED')}
+                className="px-3 py-1.5 bg-slate-600/80 hover:bg-slate-500 text-white text-xs font-semibold rounded-lg transition"
+              >
                 🔒 Close
               </button>
             )}
-            {(ticket.status === 'RESOLVED' || ticket.status === 'CLOSED') && (
-              <button onClick={() => changeStatus('REOPENED')}
-                className="px-3 py-1.5 bg-amber-600/80 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg transition">
+
+            {/* Reopen by Staff / Admin */}
+            {['RESOLVED', 'CLOSED'].includes(ticket.status) && (isTeamLead || isAdmin) && (
+              <button
+                onClick={() => setShowReopenModal(true)}
+                className="px-3 py-1.5 bg-amber-600/80 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg transition"
+              >
                 🔄 Reopen
+              </button>
+            )}
+
+            {/* Admin reject moderation for OPEN tickets */}
+            {isAdmin && !isTicketCreator && ticket.status === 'OPEN' && (
+              <button
+                onClick={() => handleReview('reject')}
+                className="px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold rounded-lg transition"
+              >
+                ❌ Reject Ticket
+              </button>
+            )}
+
+            {/* System Administrator permanent delete button */}
+            {isAdmin && (
+              <button
+                onClick={handlePermanentDelete}
+                className="px-3.5 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 ml-auto"
+                title="Permanently remove ticket and all related records"
+              >
+                🗑️ Permanent Delete
               </button>
             )}
           </div>
         )}
 
-        {/* Creator Actions when ticket is OPEN */}
+        {/* Creator actions on OPEN tickets: Edit and Soft-Cancel */}
         {isTicketCreator && ticket.status === 'OPEN' && (
           <div className="pt-3 border-t border-slate-700/50 flex flex-wrap gap-2">
             <button
@@ -501,7 +632,20 @@ export default function TicketDetails({ ticketId, onBack }) {
               onClick={handleCancelTicket}
               className="px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold rounded-lg transition flex items-center gap-1.5"
             >
-              🗑️ Cancel Ticket
+              ⏸️ Cancel Ticket
+            </button>
+          </div>
+        )}
+
+        {/* Admin permanent delete on terminal tickets */}
+        {isAdmin && isTerminal && (
+          <div className="pt-3 border-t border-slate-700/50 flex justify-end">
+            <button
+              onClick={handlePermanentDelete}
+              className="px-3.5 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40 text-xs font-semibold rounded-lg transition flex items-center gap-1.5"
+              title="Permanently remove ticket and all related records"
+            >
+              🗑️ Permanent Delete
             </button>
           </div>
         )}
@@ -509,16 +653,25 @@ export default function TicketDetails({ ticketId, onBack }) {
         {/* Resolve with notes input */}
         {showResolveInput && (
           <div className="space-y-2">
-            <textarea value={resolutionNote} onChange={e => setResolutionNote(e.target.value)} rows={3}
-              placeholder="Add optional resolution notes..."
-              className="w-full bg-slate-900/90 border border-purple-500/40 rounded-xl px-4 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-sm" />
+            <textarea
+              value={resolutionNote}
+              onChange={e => setResolutionNote(e.target.value)}
+              rows={3}
+              placeholder="Add mandatory resolution details (describe how the issue was resolved)... *"
+              className="w-full bg-slate-900/90 border border-purple-500/40 rounded-xl px-4 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-sm"
+            />
             <div className="flex gap-2">
-              <button onClick={() => changeStatus('RESOLVED', resolutionNote)}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-lg transition">
+              <button
+                disabled={!resolutionNote.trim()}
+                onClick={() => changeStatus('RESOLVED', resolutionNote)}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition"
+              >
                 Confirm Resolution
               </button>
-              <button onClick={() => setShowResolveInput(false)}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold rounded-lg transition">
+              <button
+                onClick={() => setShowResolveInput(false)}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold rounded-lg transition"
+              >
                 Cancel
               </button>
             </div>
@@ -653,6 +806,22 @@ export default function TicketDetails({ ticketId, onBack }) {
               🔄 Reopen Ticket
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── Ticket Closed - Creator Reopen Option ── */}
+      {isTicketCreator && ticket.status === 'CLOSED' && (
+        <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+          <div>
+            <h4 className="text-sm font-semibold text-white">Issue still unresolved?</h4>
+            <p className="text-xs text-slate-400">If this issue has recurred, you can reopen this ticket with updated details.</p>
+          </div>
+          <button
+            onClick={() => setShowReopenModal(true)}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-amber-300 text-xs font-bold rounded-xl border border-amber-500/30 transition flex items-center gap-2 flex-shrink-0"
+          >
+            🔄 Reopen Ticket
+          </button>
         </div>
       )}
 
@@ -998,4 +1167,3 @@ export default function TicketDetails({ ticketId, onBack }) {
     </div>
   );
 }
-

@@ -235,4 +235,19 @@ public class AttachmentService {
 
         attachmentRepository.delete(attachment);
     }
+
+    public void deletePhysicalFiles(Collection<TicketAttachment> attachments) {
+        for (TicketAttachment attachment : attachments) {
+            Path filePath = this.rootStorageLocation.resolve(attachment.getStoredFileName()).normalize();
+            if (!filePath.getParent().equals(this.rootStorageLocation)) {
+                System.err.println("Warning: skipped attachment path outside configured storage: " + filePath);
+                continue;
+            }
+            try {
+                Files.deleteIfExists(filePath);
+            } catch (IOException e) {
+                System.err.println("Warning: failed to delete physical file: " + filePath + " (" + e.getMessage() + ")");
+            }
+        }
+    }
 }

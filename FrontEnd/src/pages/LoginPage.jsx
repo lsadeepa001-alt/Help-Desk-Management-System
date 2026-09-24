@@ -8,6 +8,7 @@ const LoginPage = () => {
   const location = useLocation();
 
   const [formData, setFormData] = useState({ usernameOrEmail: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -99,6 +100,11 @@ const LoginPage = () => {
                   autoFocus
                 />
               </div>
+              <div className="text-right mt-2">
+                <Link to="/password-reset" className="text-xs text-indigo-400 hover:text-indigo-300 hover:underline transition">
+                  Forgot your password?
+                </Link>
+              </div>
             </div>
 
             <div>
@@ -112,14 +118,32 @@ const LoginPage = () => {
                   </svg>
                 </div>
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="••••••••"
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 text-sm transition"
+                  className="w-full bg-slate-900/90 border border-slate-700 rounded-xl pl-10 pr-11 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 text-sm transition"
                   autoComplete="current-password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-indigo-300 transition"
+                >
+                  {showPassword ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3l18 18M10.6 10.7a2 2 0 002.7 2.7M9.9 4.2A10.5 10.5 0 0112 4c5 0 9.3 3.1 11 8a11.8 11.8 0 01-2.2 3.8M6.6 6.6A11.5 11.5 0 001 12c1.7 4.9 6 8 11 8 1.7 0 3.3-.4 4.7-1" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+                      <circle cx="12" cy="12" r="3" strokeWidth="2" />
+                    </svg>
+                  )}
+                </button>
               </div>
             </div>
 

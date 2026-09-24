@@ -26,23 +26,25 @@ public class NotificationService {
     // ─── TICKET CREATED ──────────────────────────────────────────────────────
     public void notifyTicketCreated(Ticket ticket) {
         if (ticket == null) return;
-        List<User> agentsAndAdmins = userRepository.findAll().stream()
+        List<User> targetRecipients = userRepository.findAll().stream()
                 .filter(u -> u.getRole() == Role.SYSTEM_ADMINISTRATOR ||
-                             u.getRole() == Role.SUPPORT_AGENT ||
-                             u.getRole() == Role.TEAM_LEAD)
+                        ((u.getRole() == Role.TEAM_LEAD || u.getRole() == Role.SUPPORT_AGENT) &&
+                                ticket.getDepartment() != null &&
+                                ticket.getDepartment().equalsIgnoreCase(u.getDepartment())))
                 .toList();
 
-        String title = "➕ New Support Ticket Submitted";
-        String message = "Ticket " + ticket.getTicketNumber() + " ('" + ticket.getTitle() + "') was created by " +
-                (ticket.getCreatedBy() != null ? ticket.getCreatedBy().getFullName() : "a student") + ".";
+        String deptName = ticket.getDepartment() != null ? ticket.getDepartment() : "General";
+        String title = "➕ New Support Ticket Submitted (" + deptName + ")";
+        String message = "Ticket " + ticket.getTicketNumber() + " ('" + ticket.getTitle() + "') was submitted to " +
+                deptName + " by " +
+                (ticket.getCreatedBy() != null ? ticket.getCreatedBy().getFullName() : "a user") + ".";
 
         List<Notification> notifications = new ArrayList<>();
-        for (User agent : agentsAndAdmins) {
-            // don't notify creator if creator is an agent
-            if (ticket.getCreatedBy() != null && Objects.equals(agent.getId(), ticket.getCreatedBy().getId())) {
+        for (User recipient : targetRecipients) {
+            if (ticket.getCreatedBy() != null && Objects.equals(recipient.getId(), ticket.getCreatedBy().getId())) {
                 continue;
             }
-            notifications.add(new Notification(agent, title, message, NotificationType.TICKET_CREATED, ticket.getId()));
+            notifications.add(new Notification(recipient, title, message, NotificationType.TICKET_CREATED, ticket.getId()));
         }
 
         if (!notifications.isEmpty()) {

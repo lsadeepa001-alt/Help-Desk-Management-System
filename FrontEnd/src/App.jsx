@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { AuthProvider, useAuth, ROLES } from './context/AuthContext';
@@ -12,6 +12,8 @@ import AiChatbotModal from './components/AiChatbotModal';
 // ── Pages (auth & core) ──
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import PasswordResetPage from './pages/PasswordResetPage';
+import ProfilePage from './pages/ProfilePage';
 import Dashboard from './pages/Dashboard';
 
 // ── Feature Components ──
@@ -77,6 +79,12 @@ function AppShell() {
           <Route path="/home" element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <ProfilePage />
             </ProtectedRoute>
           } />
 
@@ -190,7 +198,7 @@ function AppShell() {
 
       <footer className="border-t border-slate-800 bg-slate-950/60 py-6 mt-16 print:hidden">
         <div className="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
-          <p>UniAssist 360 • University Help Desk System • 5-Role RBAC Verified</p>
+          <p>UniAssist 360 • University Help Desk System • 7-Role RBAC Verified</p>
         </div>
       </footer>
     </div>
@@ -255,6 +263,9 @@ function AdminUsersView() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [updatingId, setUpdatingId] = useState(null);
+  const [resetRequests, setResetRequests] = useState([]);
+  const [issuedCredential, setIssuedCredential] = useState(null);
+  const [issuingRequestId, setIssuingRequestId] = useState(null);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
@@ -268,7 +279,7 @@ function AdminUsersView() {
     phoneNumber: '',
   });
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       const res = await axios.get(`${API_BASE}/users`);
@@ -278,11 +289,21 @@ function AdminUsersView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
+
+  const fetchResetRequests = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/users/password-reset-requests`);
+      setResetRequests(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      showToast('Failed to load password reset requests: ' + (err.response?.data?.message || err.message), 'error');
+    }
+  }, [showToast]);
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+    fetchResetRequests();
+  }, [fetchResetRequests, fetchUsers]);
 
   const handleRoleChange = async (userId, newRole) => {
     setUpdatingId(userId);
@@ -315,6 +336,19 @@ function AdminUsersView() {
       setUsers(prev => prev.filter(u => u.id !== userId));
     } catch (err) {
       showToast('Failed to delete user: ' + (err.response?.data?.message || err.message), 'error');
+    }
+  };
+
+  const handleIssueResetCredential = async (requestId) => {
+    setIssuingRequestId(requestId);
+    try {
+      const res = await axios.post(`${API_BASE}/users/password-reset-requests/${requestId}/issue`);
+      setIssuedCredential(res.data);
+      await fetchResetRequests();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Unable to issue a reset credential.', 'error');
+    } finally {
+      setIssuingRequestId(null);
     }
   };
 
@@ -386,6 +420,44 @@ function AdminUsersView() {
           placeholder="Search by name, username, email, role..."
           className="w-full sm:w-80 bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
         />
+      </div>
+
+      {/* Pending administrator-assisted password resets */}
+      <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl overflow-hidden shadow-xl">
+        <div className="px-6 py-4 border-b border-slate-700/60 flex items-center justify-between gap-4">
+          <div>
+            <h3 className="font-bold text-white">Pending Password Resets</h3>
+            <p className="text-xs text-slate-400 mt-1">Issue a short-lived one-time credential, then hand it directly to the verified user.</p>
+          </div>
+          <span className="text-xs font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-3 py-1">
+            {resetRequests.length} pending
+          </span>
+        </div>
+        {resetRequests.length === 0 ? (
+          <div className="px-6 py-8 text-center text-sm text-slate-400">No pending password reset requests.</div>
+        ) : (
+          <div className="divide-y divide-slate-700/40">
+            {resetRequests.map(request => (
+              <div key={request.requestId} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="font-semibold text-white">{request.username}</div>
+                  <div className="text-xs text-slate-400">{request.email}</div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    Requested {new Date(request.requestedAt).toLocaleString()}
+                    {request.issuedAt && ` • ${request.expired ? 'Previous credential expired' : 'Credential already issued'}`}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleIssueResetCredential(request.requestId)}
+                  disabled={issuingRequestId === request.requestId}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition"
+                >
+                  {issuingRequestId === request.requestId ? 'Issuing...' : request.issuedAt ? 'Reissue Credential' : 'Issue Credential'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Users Table */}
@@ -469,6 +541,41 @@ function AdminUsersView() {
           </div>
         )}
       </div>
+
+      {issuedCredential && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className="w-full max-w-lg bg-slate-900 border border-indigo-500/40 rounded-3xl p-6 shadow-2xl space-y-5">
+            <div>
+              <h3 className="text-lg font-bold text-white">One-Time Reset Credential</h3>
+              <p className="text-xs text-amber-300 mt-1">Copy this now. The raw credential is not stored and will not be displayed again.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="text-xs text-slate-400">User: <span className="text-slate-200 font-semibold">{issuedCredential.username}</span></div>
+              <input
+                readOnly
+                value={issuedCredential.resetToken}
+                onFocus={event => event.target.select()}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm font-mono text-slate-100"
+              />
+              <div className="text-xs text-slate-400">Expires {new Date(issuedCredential.expiresAt).toLocaleString()}</div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => navigator.clipboard.writeText(issuedCredential.resetToken)}
+                className="px-4 py-2 border border-slate-600 hover:border-slate-500 text-slate-200 text-sm font-semibold rounded-xl transition"
+              >
+                Copy
+              </button>
+              <button
+                onClick={() => setIssuedCredential(null)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition"
+              >
+                I Have Saved It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Create Staff Member Modal ── */}
       {showCreateModal && (
@@ -627,6 +734,9 @@ export default function App() {
             } />
             <Route path="/register" element={
               <GuestOnlyRoute><RegisterPage /></GuestOnlyRoute>
+            } />
+            <Route path="/password-reset" element={
+              <GuestOnlyRoute><PasswordResetPage /></GuestOnlyRoute>
             } />
             <Route path="/*" element={<AppShell />} />
           </Routes>

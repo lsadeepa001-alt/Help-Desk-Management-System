@@ -1,6 +1,7 @@
 package com.university.helpdesk.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -15,7 +16,7 @@ public class User {
     @Column(nullable = false, unique = true, length = 50)
     private String username;
 
-    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
     private String password;
 
@@ -37,6 +38,10 @@ public class User {
 
     @Column(nullable = false, length = 20)
     private String status = "ACTIVE";
+
+    @JsonIgnore
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion = 0;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -84,6 +89,9 @@ public class User {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public int getTokenVersion() { return tokenVersion; }
+    public void setTokenVersion(int tokenVersion) { this.tokenVersion = tokenVersion; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

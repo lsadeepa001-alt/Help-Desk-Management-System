@@ -29,6 +29,7 @@ public class JwtUtils {
                 .claim("email", user.getEmail())
                 .claim("role", user.getRole().name())
                 .claim("fullName", user.getFullName())
+                .claim("tokenVersion", user.getTokenVersion())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -42,6 +43,16 @@ public class JwtUtils {
                 .parseClaimsJws(token)
                 .getBody()
                 .getSubject();
+    }
+
+    public int getTokenVersionFromToken(String token) {
+        Object tokenVersion = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .get("tokenVersion");
+        return tokenVersion instanceof Number number ? number.intValue() : 0;
     }
 
     public boolean validateToken(String token) {

@@ -18,13 +18,19 @@ public class RegisterRequest {
 
     @NotBlank(message = "Email is required")
     @Email(message = "Please provide a valid email address")
+    @Size(max = 100, message = "Email must not exceed 100 characters")
     private String email;
 
     @NotBlank(message = "Full name is required")
+    @Size(max = 100, message = "Full name must not exceed 100 characters")
     private String fullName;
 
     private Role role;
+
+    @Size(max = 100, message = "Department must not exceed 100 characters")
     private String department;
+
+    @Size(max = 20, message = "Phone number must not exceed 20 characters")
     private String phoneNumber;
 
     public RegisterRequest() {}

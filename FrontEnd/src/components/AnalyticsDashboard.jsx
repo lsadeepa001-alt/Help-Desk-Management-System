@@ -14,10 +14,13 @@ const priorityColors = {
 
 const statusColors = {
   OPEN: 'bg-rose-500',
+  ACCEPTED: 'bg-cyan-500',
   IN_PROGRESS: 'bg-amber-500',
   RESOLVED: 'bg-emerald-500',
   CLOSED: 'bg-slate-500',
   REOPENED: 'bg-purple-500',
+  CANCELLED: 'bg-rose-500',
+  REJECTED: 'bg-red-600',
 };
 
 export default function AnalyticsDashboard() {

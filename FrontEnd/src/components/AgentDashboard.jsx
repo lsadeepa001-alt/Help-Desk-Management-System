@@ -4,15 +4,18 @@ import { useAuth } from '../context/AuthContext';
 
 const API = 'http://localhost:8080/api';
 
-const STATUS_OPTIONS = ['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
+const STATUS_OPTIONS = ['ALL', 'OPEN', 'ACCEPTED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED', 'CANCELLED', 'REJECTED'];
 const PRIORITY_OPTIONS = ['ALL', 'CRITICAL', 'URGENT', 'HIGH', 'MEDIUM', 'LOW'];
 
 const statusColors = {
   OPEN: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+  ACCEPTED: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
   IN_PROGRESS: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
   RESOLVED: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
   CLOSED: 'bg-slate-500/20 text-slate-400 border-slate-500/40',
   REOPENED: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+  CANCELLED: 'bg-rose-500/20 text-rose-300 border-rose-500/40 line-through',
+  REJECTED: 'bg-red-500/20 text-red-300 border-red-500/40',
 };
 
 const priorityColors = {
@@ -75,25 +78,34 @@ export default function AgentDashboard({ onViewTicket }) {
     return matchStatus && matchPriority && matchDept && matchSearch;
   });
 
-  const changeStatus = async (ticketId, newStatus) => {
+  const claimTicket = async (ticketId) => {
     try {
-      await axios.put(`${API}/tickets/${ticketId}/status`, { status: newStatus });
-      setActionMsg(`Ticket status updated to ${newStatus}`);
+      await axios.put(`${API}/tickets/${ticketId}/claim`);
+      setActionMsg('Ticket claimed successfully!');
       fetchTickets();
       setTimeout(() => setActionMsg(''), 3000);
-    } catch {
-      setActionMsg('Status update failed.');
+    } catch (err) {
+      setActionMsg('Failed to claim ticket: ' + (err.response?.data?.message || err.message));
     }
   };
 
-  const assignToMe = async (ticketId) => {
+  const changeStatus = async (ticketId, newStatus) => {
     try {
-      await axios.put(`${API}/tickets/${ticketId}/assign`, { agentId: user.id });
-      setActionMsg('Ticket assigned to you!');
+      const payload = { status: newStatus };
+      if (newStatus === 'RESOLVED') {
+        const notes = window.prompt('Please enter mandatory resolution details for this ticket:');
+        if (!notes || !notes.trim()) {
+          setActionMsg('Resolution notes are required to resolve a ticket.');
+          return;
+        }
+        payload.resolutionNotes = notes.trim();
+      }
+      await axios.put(`${API}/tickets/${ticketId}/status`, payload);
+      setActionMsg(`Ticket status updated to ${newStatus}`);
       fetchTickets();
       setTimeout(() => setActionMsg(''), 3000);
-    } catch {
-      setActionMsg('Assignment failed.');
+    } catch (err) {
+      setActionMsg('Status update failed: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -251,25 +263,30 @@ export default function AgentDashboard({ onViewTicket }) {
                     View Details →
                   </button>
 
-                  {!ticket.assignedTo && (
-                    <button onClick={() => assignToMe(ticket.id)}
-                      className="px-3 py-1.5 bg-indigo-600/80 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition">
-                      Assign to Me
+                  {/* Quick claim button for unassigned OPEN tickets */}
+                  {ticket.status === 'OPEN' && !ticket.assignedTo && (user?.role === 'SUPPORT_AGENT' || user?.role === 'TEAM_LEAD') && (
+                    <button
+                      onClick={() => claimTicket(ticket.id)}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition shadow-sm"
+                    >
+                      ▶ Claim
                     </button>
                   )}
 
                   {/* Inline status dropdown */}
-                  <select
-                    value={ticket.status}
-                    onChange={e => changeStatus(ticket.id, e.target.value)}
-                    className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-                  >
-                    <option value="OPEN">OPEN</option>
-                    <option value="IN_PROGRESS">IN PROGRESS</option>
-                    <option value="RESOLVED">RESOLVED</option>
-                    <option value="CLOSED">CLOSED</option>
-                    <option value="REOPENED">REOPENED</option>
-                  </select>
+                  {['IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED'].includes(ticket.status) &&
+                    (user?.role === 'TEAM_LEAD' || user?.role === 'SYSTEM_ADMINISTRATOR' || ticket.assignedTo?.id === user?.id) && (
+                    <select
+                      value={ticket.status}
+                      onChange={e => changeStatus(ticket.id, e.target.value)}
+                      className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    >
+                      <option value="IN_PROGRESS">IN PROGRESS</option>
+                      <option value="RESOLVED">RESOLVED</option>
+                      <option value="CLOSED">CLOSED</option>
+                      <option value="REOPENED">REOPENED</option>
+                    </select>
+                  )}
                 </div>
               </div>
             </div>

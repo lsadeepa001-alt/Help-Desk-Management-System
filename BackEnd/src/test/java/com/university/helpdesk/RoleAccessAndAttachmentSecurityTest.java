@@ -205,6 +205,14 @@ public class RoleAccessAndAttachmentSecurityTest {
     @DisplayName("TEAM_LEAD can assign ticket to an agent (returns 200)")
     @WithMockUser(username = "lead", roles = {"TEAM_LEAD"})
     void teamLeadCanAssignTicketToAgent() throws Exception {
+        leadUser.setDepartment("IT");
+        agentUser.setDepartment("IT");
+        userRepository.save(leadUser);
+        userRepository.save(agentUser);
+        testTicket.setStatus(Status.ACCEPTED);
+        testTicket.setDepartment("IT");
+        ticketRepository.save(testTicket);
+
         mockMvc.perform(put("/tickets/" + testTicket.getId() + "/assign")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"agentId\": " + agentUser.getId() + "}"))

@@ -35,11 +35,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                 if (userDetails instanceof CustomUserDetails customUserDetails) {
-                    if ("SUSPENDED".equalsIgnoreCase(customUserDetails.getUser().getStatus())) {
+                    if (jwtUtils.getTokenVersionFromToken(jwt) != customUserDetails.getUser().getTokenVersion()) {
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+                    if (!customUserDetails.isEnabled()) {
                         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                         response.setContentType("application/json");
                         response.setCharacterEncoding("UTF-8");
-                        response.getWriter().write("{\"message\": \"Your account has been suspended. Please contact the administrator.\"}");
+                        response.getWriter().write("{\"message\": \"Your account is not active. Please contact the administrator.\"}");
                         return;
                     }
                 }

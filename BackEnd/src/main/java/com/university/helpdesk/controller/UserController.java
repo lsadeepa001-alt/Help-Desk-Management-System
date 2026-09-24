@@ -1,11 +1,17 @@
 package com.university.helpdesk.controller;
 
+import com.university.helpdesk.dto.AdminUserCreateRequest;
+import com.university.helpdesk.dto.ProfileUpdateRequest;
 import com.university.helpdesk.model.Role;
 import com.university.helpdesk.model.User;
 import com.university.helpdesk.repository.UserRepository;
+import com.university.helpdesk.service.PasswordResetService;
+import jakarta.validation.Valid;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,10 +26,14 @@ public class UserController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordResetService passwordResetService;
 
-    public UserController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserController(UserRepository userRepository,
+                          PasswordEncoder passwordEncoder,
+                          PasswordResetService passwordResetService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.passwordResetService = passwordResetService;
     }
 
     // ─── GET ALL USERS (Administrator only) ───────────────────────────────────
@@ -35,9 +45,24 @@ public class UserController {
 
     // ─── GET AGENTS ONLY (Staff and Admins for ticket assignment) ─────────────
     @GetMapping("/agents")
-    @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
-    public List<User> getAgents() {
-        return userRepository.findByRole(Role.SUPPORT_AGENT);
+    @PreAuthorize("hasAnyRole('TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
+    public List<User> getAgents(Authentication authentication) {
+        List<User> agents = userRepository.findByRole(Role.SUPPORT_AGENT);
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
+        if (isAdmin) {
+            return agents;
+        }
+
+        User teamLead = userRepository.findByUsername(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        if (teamLead.getDepartment() == null || teamLead.getDepartment().isBlank()) {
+            return List.of();
+        }
+        return agents.stream()
+                .filter(agent -> agent.getDepartment() != null &&
+                        agent.getDepartment().equalsIgnoreCase(teamLead.getDepartment()))
+                .toList();
     }
 
     // ─── GET USER BY ID (Administrator only) ──────────────────────────────────
@@ -49,32 +74,69 @@ public class UserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PutMapping("/{id}/profile")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<User> updateOwnProfile(@PathVariable Long id,
+                                                 @Valid @RequestBody ProfileUpdateRequest request,
+                                                 Authentication authentication) {
+        User currentUser = userRepository.findByUsername(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        if (!currentUser.getId().equals(id)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only update your own profile");
+        }
+
+        userRepository.findByEmailIgnoreCase(request.getEmail().trim())
+                .filter(existing -> !existing.getId().equals(currentUser.getId()))
+                .ifPresent(existing -> {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already registered");
+                });
+
+        currentUser.setFullName(request.getFullName().trim());
+        currentUser.setEmail(request.getEmail().trim());
+        currentUser.setDepartment(normalizeOptional(request.getDepartment()));
+        currentUser.setPhoneNumber(normalizeOptional(request.getPhoneNumber()));
+        return ResponseEntity.ok(userRepository.save(currentUser));
+    }
+
+    @GetMapping("/password-reset-requests")
+    @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<?> getPendingPasswordResetRequests() {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(passwordResetService.getPendingRequests());
+    }
+
+    @PostMapping("/password-reset-requests/{requestId}/issue")
+    @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<?> issuePasswordResetCredential(@PathVariable Long requestId) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(passwordResetService.issueCredential(requestId));
+    }
+
     // ─── CREATE USER (Administrator only) ─────────────────────────────────────
     @PostMapping
     @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<?> createUser(@RequestBody User user) {
-        if (user.getUsername() == null || user.getUsername().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username is required");
-        }
-        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
+    public ResponseEntity<?> createUser(@Valid @RequestBody AdminUserCreateRequest request) {
+        String username = request.getUsername().trim();
+        String email = request.getEmail().trim();
+        if (userRepository.findByUsername(username).isPresent()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username is already taken");
         }
-        if (user.getEmail() != null && userRepository.findByEmail(user.getEmail()).isPresent()) {
+        if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already registered");
         }
 
-        if (user.getPassword() != null && !user.getPassword().isBlank()) {
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
-        } else {
-            user.setPassword(passwordEncoder.encode("password123"));
-        }
-
-        if (user.getRole() == null) {
-            user.setRole(Role.STUDENT);
-        }
-        if (user.getStatus() == null) {
-            user.setStatus("ACTIVE");
-        }
+        User user = new User();
+        user.setUsername(username);
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setEmail(email);
+        user.setFullName(request.getFullName().trim());
+        user.setRole(request.getRole());
+        user.setDepartment(normalizeOptional(request.getDepartment()));
+        user.setPhoneNumber(normalizeOptional(request.getPhoneNumber()));
+        user.setStatus("ACTIVE");
 
         User saved = userRepository.save(user);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
@@ -122,6 +184,7 @@ public class UserController {
         }
 
         user.setStatus(newStatus);
+        user.setTokenVersion(user.getTokenVersion() + 1);
         User updated = userRepository.save(user);
         return ResponseEntity.ok(updated);
     }
@@ -135,5 +198,11 @@ public class UserController {
         }
         userRepository.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private String normalizeOptional(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

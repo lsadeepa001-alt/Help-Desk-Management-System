@@ -34,53 +34,53 @@ const roleDisplayName = (user) => {
 // ── Navigation Items per role ──
 const getNavItems = (role) => {
   const items = [
-    { to: '/home', label: 'Dashboard', icon: '🏠' },
+    { to: '/home', label: 'Dashboard'},
   ];
 
   // STUDENT / LECTURER (End Users / Customers)
   if (role === ROLES.STUDENT || role === ROLES.LECTURER) {
-    items.push({ to: '/my-tickets',  label: 'My Tickets',      icon: '🗂️' });
-    items.push({ to: '/create',      label: 'New Ticket',      icon: '➕' });
-    items.push({ to: '/kb',          label: 'Knowledge Base',  icon: '📚' });
+    items.push({ to: '/my-tickets',  label: 'My Tickets'});
+    items.push({ to: '/create',      label: 'New Ticket'});
+    items.push({ to: '/kb',          label: 'Knowledge Base'});
   }
 
   // SUPPORT_AGENT
   if (role === ROLES.SUPPORT_AGENT) {
-    items.push({ to: '/dashboard',   label: 'Agent Queue',     icon: '🛠️' });
-    items.push({ to: '/tickets',     label: 'All Tickets',     icon: '📋' });
-    items.push({ to: '/kb',          label: 'Knowledge Base',  icon: '📚' });
+    items.push({ to: '/dashboard',   label: 'Agent Queue' });
+    items.push({ to: '/tickets',     label: 'All Tickets' });
+    items.push({ to: '/kb',          label: 'Knowledge Base' });
   }
 
   // TEAM_LEAD
   if (role === ROLES.TEAM_LEAD) {
-    items.push({ to: '/dashboard',   label: 'Team Board',      icon: '🛠️' });
-    items.push({ to: '/tickets',     label: 'Ticket Queue',    icon: '📋' });
-    items.push({ to: '/csat',        label: 'CSAT',            icon: '⭐' });
-    items.push({ to: '/analytics',   label: 'Analytics',       icon: '📊' });
-    items.push({ to: '/kb',          label: 'Knowledge Base',  icon: '📚' });
+    items.push({ to: '/dashboard',   label: 'Team Board'});
+    items.push({ to: '/tickets',     label: 'Ticket Queue'});
+    items.push({ to: '/csat',        label: 'CSAT'});
+    items.push({ to: '/analytics',   label: 'Analytics'});
+    items.push({ to: '/kb',          label: 'Knowledge Base'});
   }
 
   // KNOWLEDGE_MANAGER (KB & Chatbot content only; no operational tickets)
   if (role === ROLES.KNOWLEDGE_MANAGER) {
-    items.push({ to: '/knowledge-base/manage', label: 'Manage KB', icon: '📚' });
-    items.push({ to: '/kb',          label: 'Knowledge Base',  icon: '🔍' });
+    items.push({ to: '/knowledge-base/manage', label: 'Manage KB'});
+    items.push({ to: '/kb',          label: 'Knowledge Base'});
   }
 
   // MANAGER_EXECUTIVE (Analytics, Reports, CSAT Reviews; no operational tickets)
   if (role === ROLES.MANAGER_EXECUTIVE) {
-    items.push({ to: '/analytics',   label: 'Analytics & Reports', icon: '📊' });
-    items.push({ to: '/csat',        label: 'CSAT Reviews',        icon: '⭐' });
+    items.push({ to: '/analytics',   label: 'Analytics & Reports'});
+    items.push({ to: '/csat',        label: 'CSAT Reviews'});
   }
 
   // SYSTEM_ADMINISTRATOR (Full system administration)
   if (role === ROLES.SYSTEM_ADMINISTRATOR) {
-    items.push({ to: '/admin/users', label: 'Users & Roles',   icon: '👥' });
-    items.push({ to: '/tickets',     label: 'All Tickets',     icon: '📋' });
-    items.push({ to: '/dashboard',   label: 'Agent Dashboard', icon: '🛠️' });
-    items.push({ to: '/create',      label: 'New Ticket',      icon: '➕' });
-    items.push({ to: '/csat',        label: 'CSAT',            icon: '⭐' });
-    items.push({ to: '/analytics',   label: 'Analytics',       icon: '📊' });
-    items.push({ to: '/kb',          label: 'Knowledge Base',  icon: '📚' });
+    items.push({ to: '/admin/users', label: 'Users & Roles'});
+    items.push({ to: '/tickets',     label: 'All Tickets'});
+    items.push({ to: '/dashboard',   label: 'Agent Dashboard'});
+    items.push({ to: '/create',      label: 'New Ticket'});
+    items.push({ to: '/csat',        label: 'CSAT'});
+    items.push({ to: '/analytics',   label: 'Analytics'});
+    items.push({ to: '/kb',          label: 'Knowledge Base'});
   }
 
   return items;
@@ -143,7 +143,6 @@ const Navbar = () => {
                   }`
                 }
               >
-                <span>{item.icon}</span>
                 <span>{item.label}</span>
               </NavLink>
             ))}
@@ -166,12 +165,6 @@ const Navbar = () => {
                 <span className="w-7 h-7 rounded-full bg-indigo-600/80 text-white flex items-center justify-center text-xs font-bold shadow-md">
                   {(user.fullName || user.username || 'U')[0].toUpperCase()}
                 </span>
-                <div className="hidden sm:block text-left">
-                  <div className="text-xs font-semibold text-white leading-tight">{user.fullName || user.username}</div>
-                  <span className={`inline-block px-1.5 rounded border font-semibold tracking-wider uppercase text-[9px] ${roleBadgeStyle(user?.role || user?.frontendRole)}`}>
-                    {roleDisplayName(user)}
-                  </span>
-                </div>
                 <svg className={`w-3 h-3 text-slate-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                 </svg>
@@ -188,6 +181,13 @@ const Navbar = () => {
                     </span>
                   </div>
                   <div className="py-1">
+                    <NavLink
+                      to="/profile"
+                      onClick={() => setShowDropdown(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700/60 hover:text-white transition"
+                    >
+                      <span>👤</span> Profile & Contact
+                    </NavLink>
                     <NavLink
                       to="/my-tickets"
                       onClick={() => setShowDropdown(false)}

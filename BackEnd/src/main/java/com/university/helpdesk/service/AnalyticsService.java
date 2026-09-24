@@ -34,11 +34,15 @@ public class AnalyticsService {
         long totalTickets = tickets.size();
 
         long openTickets = tickets.stream()
-                .filter(t -> t.getStatus() == Status.OPEN || t.getStatus() == Status.REOPENED)
+                .filter(t -> t.getStatus() == Status.OPEN)
+                .count();
+
+        long acceptedTickets = tickets.stream()
+                .filter(t -> t.getStatus() == Status.ACCEPTED)
                 .count();
 
         long inProgressTickets = tickets.stream()
-                .filter(t -> t.getStatus() == Status.IN_PROGRESS)
+                .filter(t -> t.getStatus() == Status.IN_PROGRESS || t.getStatus() == Status.REOPENED)
                 .count();
 
         long resolvedTickets = tickets.stream()
@@ -92,6 +96,7 @@ public class AnalyticsService {
         Map<String, Object> summary = new HashMap<>();
         summary.put("totalTickets", totalTickets);
         summary.put("openTickets", openTickets);
+        summary.put("acceptedTickets", acceptedTickets);
         summary.put("inProgressTickets", inProgressTickets);
         summary.put("resolvedTickets", resolvedTickets);
         summary.put("avgResolutionTimeHours", avgResolutionHours);

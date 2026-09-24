@@ -137,6 +137,18 @@ export const AuthProvider = ({ children }) => {
     delete axios.defaults.headers.common['Authorization'];
   }, []);
 
+  const updateCurrentUser = useCallback((updatedUser) => {
+    setUser((currentUser) => {
+      const userData = {
+        ...currentUser,
+        ...updatedUser,
+        frontendRole: mapBackendRole(updatedUser.role || currentUser?.role),
+      };
+      localStorage.setItem('helpdesk_user', JSON.stringify(userData));
+      return userData;
+    });
+  }, []);
+
   const isAuthenticated = !!user && !!token;
 
   /**
@@ -159,6 +171,7 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
+        updateCurrentUser,
         hasRole,
         getLandingPath: () => getLandingPath(user?.frontendRole),
       }}
