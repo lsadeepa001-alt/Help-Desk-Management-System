@@ -70,7 +70,7 @@ public class PasswordResetService {
                 token.setExpiresAt(expiresAt);
                 tokenRepository.save(token);
 
-                String resetLink = frontendUrl + "/reset-password?token=" + rawToken;
+                String resetLink = frontendUrl + "/password-reset?token=" + rawToken;
                 String subject = "UniAssist 360 - Password Reset Request";
                 String body = "Hello " + (user.getFullName() != null ? user.getFullName() : user.getUsername()) + ",\n\n"
                         + "A password reset request was received for your UniAssist 360 account.\n\n"

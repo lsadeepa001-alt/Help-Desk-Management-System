@@ -98,7 +98,7 @@ class SelfServicePasswordResetTest {
         assertEquals("reset.student@university.edu", sentMessage.getTo()[0]);
         String body = sentMessage.getText();
         assertNotNull(body);
-        assertTrue(body.contains("http://localhost:5173/reset-password?token="), "Email body must contain reset URL with token");
+        assertTrue(body.contains("http://localhost:5173/password-reset?token="), "Email body must contain reset URL with token");
 
         // Extract raw token from email
         Pattern tokenPattern = Pattern.compile("token=([A-Za-z0-9_\\-]+)");
