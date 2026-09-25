@@ -212,6 +212,11 @@ public class TicketService {
                     "This status requires its dedicated workflow action");
         }
 
+        if (newStatus == Status.RESOLVED && ticket.getAssignedTo() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "An unassigned ticket cannot be resolved. It must be assigned to a support agent first");
+        }
+
         if (!isAdmin && !sameDepartment(ticket.getDepartment(), currentUser.getDepartment())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Staff can only update tickets in their technical department");

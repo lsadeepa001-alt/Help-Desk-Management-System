@@ -43,9 +43,16 @@ const roleColors = {
 const STAFF_ROLES = ['SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR'];
 
 const getApiErrorMessage = (error) => {
+  if (!error) return 'An unknown error occurred.';
   const responseData = error.response?.data;
-  if (typeof responseData === 'string' && responseData.trim()) return responseData;
-  return responseData?.message || responseData?.detail || responseData?.error || error.message;
+  if (typeof responseData === 'string' && responseData.trim()) return responseData.trim();
+  return (
+    responseData?.message ||
+    responseData?.detail ||
+    responseData?.error ||
+    error.message ||
+    'Request failed.'
+  );
 };
 
 export default function TicketDetails({ ticketId, onBack }) {
@@ -69,6 +76,12 @@ export default function TicketDetails({ ticketId, onBack }) {
   const isAgent = isStaff;
   const isTicketCreator = isAuthenticated && ticket?.createdBy?.id === user?.id;
   const isTerminal = ticket?.status === 'CANCELLED' || ticket?.status === 'REJECTED';
+  const isMine = isAuthenticated && ticket?.assignedTo?.id === user?.id;
+
+  const sameDept = ticket?.department && user?.department &&
+    ticket.department.trim().toLowerCase() === user.department.trim().toLowerCase();
+  const isMatchingAssignedAgent = isSupportAgent && isMine && sameDept &&
+    ['IN_PROGRESS', 'REOPENED'].includes(ticket?.status);
 
   const [attachments, setAttachments] = useState([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
@@ -76,7 +89,9 @@ export default function TicketDetails({ ticketId, onBack }) {
   const [availableAgents, setAvailableAgents] = useState([]);
   const [selectedReassignAgentId, setSelectedReassignAgentId] = useState('');
   const [selectedRouteDepartment, setSelectedRouteDepartment] = useState('IT');
-  const canUploadAttachment = (isTicketCreator && ticket?.status === 'OPEN') || (isStaff && !isTerminal);
+
+  // Proposal-aligned attachment upload: Creator on own OPEN ticket, or Assigned Agent on active matching ticket
+  const canUploadAttachment = (isTicketCreator && ticket?.status === 'OPEN') || isMatchingAssignedAgent;
 
   const [myFeedback, setMyFeedback] = useState(null);
   const [csatMode, setCsatMode] = useState('create');
@@ -162,7 +177,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       });
       fetchAttachments();
     } catch (err) {
-      setAttachmentError(err.response?.data?.message || 'Failed to upload attachment.');
+      setAttachmentError(getApiErrorMessage(err));
     } finally {
       setUploadingAttachment(false);
       e.target.value = '';
@@ -171,10 +186,8 @@ export default function TicketDetails({ ticketId, onBack }) {
 
   const handleDownloadAttachment = async (attachmentId, originalFileName) => {
     try {
-      const token = localStorage.getItem('token');
       const response = await axios.get(`${API}/tickets/${ticketId}/attachments/${attachmentId}/download`, {
         responseType: 'blob',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
@@ -185,7 +198,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      alert('Failed to download attachment: ' + (err.response?.data?.message || err.message));
+      alert('Failed to download attachment: ' + getApiErrorMessage(err));
     }
   };
 
@@ -195,7 +208,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       await axios.delete(`${API}/tickets/${ticketId}/attachments/${attachmentId}`);
       fetchAttachments();
     } catch (err) {
-      alert('Failed to delete attachment: ' + (err.response?.data?.message || err.message));
+      alert('Failed to delete attachment: ' + getApiErrorMessage(err));
     }
   };
 
@@ -205,7 +218,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       setTicket(res.data);
       setStatusMsg('✅ Ticket claimed! You are now working on this ticket.');
     } catch (err) {
-      setStatusMsg('Failed to claim ticket: ' + (err.response?.data?.message || err.message));
+      setStatusMsg('Failed to claim ticket: ' + getApiErrorMessage(err));
     }
   };
 
@@ -216,7 +229,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       setStatusMsg('Ticket assigned successfully.');
       setSelectedReassignAgentId('');
     } catch (err) {
-      setStatusMsg('Failed to assign ticket: ' + (err.response?.data?.message || err.message));
+      setStatusMsg('Failed to assign ticket: ' + getApiErrorMessage(err));
     }
   };
 
@@ -250,7 +263,7 @@ export default function TicketDetails({ ticketId, onBack }) {
         setTimeout(() => setShowCsatModal(true), 600);
       }
     } catch (err) {
-      setStatusMsg('Status update failed: ' + (err.response?.data?.message || err.message));
+      setStatusMsg('Status update failed: ' + getApiErrorMessage(err));
     }
   };
 
@@ -264,7 +277,7 @@ export default function TicketDetails({ ticketId, onBack }) {
         setTimeout(() => setShowCsatModal(true), 400);
       }
     } catch (err) {
-      setStatusMsg('Failed to confirm resolution: ' + (err.response?.data?.message || err.message));
+      setStatusMsg('Failed to confirm resolution: ' + getApiErrorMessage(err));
     }
   };
 
@@ -279,7 +292,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       setStatusMsg('🔄 Ticket reopened successfully.');
       fetchComments();
     } catch (err) {
-      setStatusMsg('Failed to reopen ticket: ' + (err.response?.data?.message || err.message));
+      setStatusMsg('Failed to reopen ticket: ' + getApiErrorMessage(err));
     }
   };
 
@@ -290,11 +303,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       if (res.data) setTicket(res.data);
       setStatusMsg('Ticket cancelled successfully.');
     } catch (err) {
-      const responseData = err.response?.data;
-      const backendMessage = typeof responseData === 'string'
-        ? responseData
-        : responseData?.message || responseData?.error || responseData?.detail;
-      setStatusMsg('Failed to cancel ticket: ' + (backendMessage || err.message));
+      setStatusMsg('Failed to cancel ticket: ' + getApiErrorMessage(err));
     }
   };
 
@@ -304,21 +313,10 @@ export default function TicketDetails({ ticketId, onBack }) {
       await axios.delete(`${API}/tickets/${ticketId}/permanent`);
       onBack?.();
     } catch (err) {
-      setStatusMsg('Failed to permanently delete ticket: ' + (err.response?.data?.message || err.message));
+      setStatusMsg('Failed to permanently delete ticket: ' + getApiErrorMessage(err));
     }
   };
 
-  const handleReview = async (decision) => {
-    const action = decision === 'accept' ? 'accept' : 'reject';
-    if (!window.confirm(`Are you sure you want to ${action} this ticket?`)) return;
-    try {
-      const res = await axios.put(`${API}/tickets/${ticketId}/${action}`);
-      setTicket(res.data);
-      setStatusMsg(`Ticket ${action}ed successfully.`);
-    } catch (err) {
-      setStatusMsg(`Failed to ${action} ticket: ` + getApiErrorMessage(err));
-    }
-  };
 
   const handleRouteTicket = async () => {
     try {
@@ -326,7 +324,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       setTicket(res.data);
       setStatusMsg(`Ticket routed to ${res.data.department}.`);
     } catch (err) {
-      setStatusMsg('Failed to route ticket: ' + (err.response?.data?.message || err.message));
+      setStatusMsg('Failed to route ticket: ' + getApiErrorMessage(err));
     }
   };
 
@@ -349,7 +347,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       setShowEditModal(false);
       setStatusMsg('✅ Ticket updated successfully.');
     } catch (err) {
-      setStatusMsg('Failed to update ticket: ' + (err.response?.data?.message || err.message));
+      setStatusMsg('Failed to update ticket: ' + getApiErrorMessage(err));
     }
   };
 
@@ -362,7 +360,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       setCsatSubmitted(false);
       setStatusMsg('Feedback withdrawn successfully. You may submit a new rating.');
     } catch (err) {
-      setStatusMsg('Failed to withdraw feedback: ' + (err.response?.data?.message || err.message));
+      setStatusMsg('Failed to withdraw feedback: ' + getApiErrorMessage(err));
     }
   };
 
@@ -384,8 +382,8 @@ export default function TicketDetails({ ticketId, onBack }) {
       setCommentText('');
       setIsInternalNote(false);
       await fetchComments();
-    } catch {
-      setStatusMsg('Failed to post comment.');
+    } catch (err) {
+      setStatusMsg('Failed to post comment: ' + getApiErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -410,7 +408,6 @@ export default function TicketDetails({ ticketId, onBack }) {
     <div className="text-center py-20 text-rose-400">Ticket not found.</div>
   );
 
-  const isMine = isAuthenticated && ticket.assignedTo?.id === user?.id;
   const canManageLifecycle = !isTerminal && (
     isTeamLead ||
     isSupportAgent ||
@@ -714,9 +711,11 @@ export default function TicketDetails({ ticketId, onBack }) {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {attachments.map((att) => {
+              const isMyAttachment = att.uploadedById != null ? att.uploadedById === user?.id : att.uploaderName === user?.username;
               const canDelete =
-                (ticket?.status === 'OPEN' && (att.uploaderName === user?.username || isTicketCreator)) ||
-                user?.role === 'SYSTEM_ADMINISTRATOR';
+                isAdmin ||
+                (isTicketCreator && ticket?.status === 'OPEN' && isMyAttachment) ||
+                (isMatchingAssignedAgent && isMyAttachment);
 
               return (
                 <div

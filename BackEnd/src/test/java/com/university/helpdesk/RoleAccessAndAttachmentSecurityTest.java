@@ -316,9 +316,16 @@ public class RoleAccessAndAttachmentSecurityTest {
     }
 
     @Test
-    @DisplayName("Support staff can list and download ticket attachments")
+    @DisplayName("Assigned support agent in matching department can list and download attachments")
     @WithMockUser(username = "agent", roles = {"SUPPORT_AGENT"})
     void supportAgentCanListAndDownloadAttachments() throws Exception {
+        agentUser.setDepartment("IT");
+        userRepository.save(agentUser);
+        testTicket.setDepartment("IT");
+        testTicket.setAssignedTo(agentUser);
+        testTicket.setStatus(Status.IN_PROGRESS);
+        ticketRepository.save(testTicket);
+
         mockMvc.perform(get("/tickets/" + testTicket.getId() + "/attachments"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(testAttachment.getId()));
@@ -328,9 +335,16 @@ public class RoleAccessAndAttachmentSecurityTest {
     }
 
     @Test
-    @DisplayName("Support staff can upload an allowed attachment")
+    @DisplayName("Assigned support agent in matching department can upload on active ticket")
     @WithMockUser(username = "agent", roles = {"SUPPORT_AGENT"})
     void supportAgentCanUploadAttachment() throws Exception {
+        agentUser.setDepartment("IT");
+        userRepository.save(agentUser);
+        testTicket.setDepartment("IT");
+        testTicket.setAssignedTo(agentUser);
+        testTicket.setStatus(Status.IN_PROGRESS);
+        ticketRepository.save(testTicket);
+
         MockMultipartFile textFile = new MockMultipartFile(
                 "files",
                 "diagnostic.txt",
@@ -342,6 +356,77 @@ public class RoleAccessAndAttachmentSecurityTest {
                         .file(textFile))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$[0].originalFileName").value("diagnostic.txt"));
+    }
+
+    @Test
+    @DisplayName("Unassigned or cross-department support agent cannot upload attachments (403)")
+    @WithMockUser(username = "agent", roles = {"SUPPORT_AGENT"})
+    void supportAgentUnassignedOrCrossDepartmentUploadFails() throws Exception {
+        agentUser.setDepartment("IT");
+        userRepository.save(agentUser);
+        testTicket.setDepartment("IT");
+        testTicket.setAssignedTo(null);
+        testTicket.setStatus(Status.IN_PROGRESS);
+        ticketRepository.save(testTicket);
+
+        MockMultipartFile file1 = new MockMultipartFile("files", "diag1.txt", MediaType.TEXT_PLAIN_VALUE, "data".getBytes());
+        mockMvc.perform(multipart("/tickets/" + testTicket.getId() + "/attachments").file(file1))
+                .andExpect(status().isForbidden());
+
+        // Cross-department
+        testTicket.setAssignedTo(agentUser);
+        testTicket.setDepartment("Maintenance");
+        ticketRepository.save(testTicket);
+
+        mockMvc.perform(multipart("/tickets/" + testTicket.getId() + "/attachments").file(file1))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Cross-department Team Lead cannot view or download attachments (403)")
+    @WithMockUser(username = "lead", roles = {"TEAM_LEAD"})
+    void crossDepartmentTeamLeadCannotViewOrDownload() throws Exception {
+        leadUser.setDepartment("Maintenance");
+        userRepository.save(leadUser);
+        testTicket.setDepartment("IT");
+        ticketRepository.save(testTicket);
+
+        mockMvc.perform(get("/tickets/" + testTicket.getId() + "/attachments"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/tickets/" + testTicket.getId() + "/attachments/" + testAttachment.getId() + "/download"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Same-department Team Lead can view and download attachments (200)")
+    @WithMockUser(username = "lead", roles = {"TEAM_LEAD"})
+    void sameDepartmentTeamLeadCanViewAndDownload() throws Exception {
+        leadUser.setDepartment("IT");
+        userRepository.save(leadUser);
+        testTicket.setDepartment("IT");
+        ticketRepository.save(testTicket);
+
+        mockMvc.perform(get("/tickets/" + testTicket.getId() + "/attachments"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(testAttachment.getId()));
+
+        mockMvc.perform(get("/tickets/" + testTicket.getId() + "/attachments/" + testAttachment.getId() + "/download"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Team Lead cannot upload attachments (403)")
+    @WithMockUser(username = "lead", roles = {"TEAM_LEAD"})
+    void teamLeadCannotUploadAttachments() throws Exception {
+        leadUser.setDepartment("IT");
+        userRepository.save(leadUser);
+        testTicket.setDepartment("IT");
+        ticketRepository.save(testTicket);
+
+        MockMultipartFile file = new MockMultipartFile("files", "lead.txt", MediaType.TEXT_PLAIN_VALUE, "lead note".getBytes());
+        mockMvc.perform(multipart("/tickets/" + testTicket.getId() + "/attachments").file(file))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -380,11 +465,46 @@ public class RoleAccessAndAttachmentSecurityTest {
     }
 
     @Test
-    @DisplayName("Support staff cannot delete an attachment")
+    @DisplayName("Support agent cannot delete requester's attachment (403)")
     @WithMockUser(username = "agent", roles = {"SUPPORT_AGENT"})
-    void supportAgentCannotDeleteAttachment() throws Exception {
+    void supportAgentCannotDeleteRequesterAttachment() throws Exception {
+        agentUser.setDepartment("IT");
+        userRepository.save(agentUser);
+        testTicket.setDepartment("IT");
+        testTicket.setAssignedTo(agentUser);
+        testTicket.setStatus(Status.IN_PROGRESS);
+        ticketRepository.save(testTicket);
+
+        // testAttachment is uploaded by studentUser
         mockMvc.perform(delete("/tickets/" + testTicket.getId() + "/attachments/" + testAttachment.getId()))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Support agent can delete own uploaded attachment on active ticket (204)")
+    @WithMockUser(username = "agent", roles = {"SUPPORT_AGENT"})
+    void supportAgentCanDeleteOwnActiveTicketAttachment() throws Exception {
+        agentUser.setDepartment("IT");
+        userRepository.save(agentUser);
+        testTicket.setDepartment("IT");
+        testTicket.setAssignedTo(agentUser);
+        testTicket.setStatus(Status.IN_PROGRESS);
+        ticketRepository.save(testTicket);
+
+        TicketAttachment agentAtt = new TicketAttachment();
+        agentAtt.setTicket(testTicket);
+        agentAtt.setOriginalFileName("agent_log.txt");
+        agentAtt.setStoredFileName("agent_log.txt");
+        agentAtt.setStoragePath(Paths.get("target", "test-uploads", "agent_log.txt").toAbsolutePath().toString());
+        agentAtt.setContentType("text/plain");
+        agentAtt.setFileSize(20L);
+        agentAtt.setUploadedBy(agentUser);
+        agentAtt = attachmentRepository.save(agentAtt);
+
+        mockMvc.perform(delete("/tickets/" + testTicket.getId() + "/attachments/" + agentAtt.getId()))
+                .andExpect(status().isNoContent());
+
+        assertFalse(attachmentRepository.existsById(agentAtt.getId()));
     }
 
     @Test
@@ -395,5 +515,14 @@ public class RoleAccessAndAttachmentSecurityTest {
                 .andExpect(status().isNoContent());
 
         assertFalse(attachmentRepository.existsById(testAttachment.getId()));
+    }
+
+    @Test
+    @DisplayName("System Administrator cannot routinely upload attachments to other users' tickets (403)")
+    @WithMockUser(username = "admin", roles = {"SYSTEM_ADMINISTRATOR"})
+    void adminCannotRoutinelyUploadToAnotherUsersTicket() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("files", "admin_log.txt", MediaType.TEXT_PLAIN_VALUE, "admin note".getBytes());
+        mockMvc.perform(multipart("/tickets/" + testTicket.getId() + "/attachments").file(file))
+                .andExpect(status().isForbidden());
     }
 }

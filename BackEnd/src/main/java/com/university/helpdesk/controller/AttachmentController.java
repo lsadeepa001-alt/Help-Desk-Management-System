@@ -29,9 +29,9 @@ public class AttachmentController {
         this.attachmentService = attachmentService;
     }
 
-    // ─── UPLOAD ATTACHMENTS (Customer or Support Staff) ──────────────────────
+    // ─── UPLOAD ATTACHMENTS (Customer or Assigned Agent or Admin) ───────────
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<List<TicketAttachmentDTO>> uploadAttachments(
             @PathVariable Long ticketId,
             @RequestParam("files") MultipartFile[] files,
@@ -77,9 +77,9 @@ public class AttachmentController {
                 .body(resource);
     }
 
-    // ─── DELETE ATTACHMENT (Owner while OPEN, or Admin) ──────────────────────
+    // ─── DELETE ATTACHMENT (Owner while OPEN, Admin, or Agent on active ticket) ──
     @DeleteMapping("/{attachmentId}")
-    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SYSTEM_ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Void> deleteAttachment(
             @PathVariable Long ticketId,
             @PathVariable Long attachmentId,

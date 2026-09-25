@@ -1,6 +1,7 @@
 package com.university.helpdesk.service;
 
 import com.university.helpdesk.dto.TicketAttachmentDTO;
+import com.university.helpdesk.model.Role;
 import com.university.helpdesk.model.Status;
 import com.university.helpdesk.model.Ticket;
 import com.university.helpdesk.model.TicketAttachment;
@@ -80,22 +81,85 @@ public class AttachmentService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
     }
 
-    private boolean isStaffUser(Authentication auth) {
-        if (auth == null) return false;
-        return auth.getAuthorities().stream().anyMatch(a ->
-                a.getAuthority().equals("ROLE_SUPPORT_AGENT") ||
-                a.getAuthority().equals("ROLE_TEAM_LEAD") ||
-                a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
+    private boolean sameDepartment(String first, String second) {
+        return first != null && second != null && first.trim().equalsIgnoreCase(second.trim());
     }
 
-    private void checkTicketAccess(Ticket ticket, User currentUser, Authentication auth) {
-        if (isStaffUser(auth)) {
+    private void checkViewAccess(Ticket ticket, User currentUser) {
+        if (currentUser.getRole() == Role.SYSTEM_ADMINISTRATOR) {
             return;
         }
-        if (ticket.getCreatedBy() == null || !ticket.getCreatedBy().getId().equals(currentUser.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Access denied: You are not authorized to view attachments for this ticket");
+
+        if (ticket.getCreatedBy() != null && ticket.getCreatedBy().getId().equals(currentUser.getId())) {
+            return;
         }
+
+        if (currentUser.getRole() == Role.SUPPORT_AGENT) {
+            if (ticket.getAssignedTo() != null &&
+                    ticket.getAssignedTo().getId().equals(currentUser.getId()) &&
+                    sameDepartment(ticket.getDepartment(), currentUser.getDepartment())) {
+                return;
+            }
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Support Agents can only access attachments for tickets assigned to them in their department");
+        }
+
+        if (currentUser.getRole() == Role.TEAM_LEAD) {
+            if (sameDepartment(ticket.getDepartment(), currentUser.getDepartment())) {
+                return;
+            }
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Team Leads can only access attachments for tickets in their department");
+        }
+
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "Access denied: You are not authorized to view attachments for this ticket");
+    }
+
+    private void checkUploadAccess(Ticket ticket, User currentUser) {
+        if (currentUser.getRole() == Role.SYSTEM_ADMINISTRATOR) {
+            boolean isCreator = ticket.getCreatedBy() != null && ticket.getCreatedBy().getId().equals(currentUser.getId());
+            if (!isCreator) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Administrators cannot routinely upload attachments to other users' tickets");
+            }
+            if (ticket.getStatus() != Status.OPEN) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Attachments can only be uploaded while the ticket is OPEN");
+            }
+            return;
+        }
+
+        boolean isCreator = ticket.getCreatedBy() != null && ticket.getCreatedBy().getId().equals(currentUser.getId());
+        if (isCreator) {
+            if (ticket.getStatus() != Status.OPEN) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Requesters can only upload attachments while the ticket is OPEN");
+            }
+            return;
+        }
+
+        if (currentUser.getRole() == Role.SUPPORT_AGENT) {
+            if (ticket.getAssignedTo() == null ||
+                    !ticket.getAssignedTo().getId().equals(currentUser.getId()) ||
+                    !sameDepartment(ticket.getDepartment(), currentUser.getDepartment())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Support Agents can only upload attachments to tickets assigned to them in their department");
+            }
+            if (ticket.getStatus() != Status.IN_PROGRESS && ticket.getStatus() != Status.REOPENED) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Support Agents can only upload attachments while the ticket is active (IN_PROGRESS or REOPENED)");
+            }
+            return;
+        }
+
+        if (currentUser.getRole() == Role.TEAM_LEAD) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Team Leads do not upload attachments; coordination is conducted via comments and notes");
+        }
+
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "Access denied: You are not authorized to upload attachments for this ticket");
     }
 
     public List<TicketAttachmentDTO> storeAttachments(Long ticketId, MultipartFile[] files, Authentication auth) {
@@ -103,7 +167,7 @@ public class AttachmentService {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found with id " + ticketId));
 
-        checkTicketAccess(ticket, currentUser, auth);
+        checkUploadAccess(ticket, currentUser);
 
         if (files == null || files.length == 0) {
             return Collections.emptyList();
@@ -174,7 +238,7 @@ public class AttachmentService {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found with id " + ticketId));
 
-        checkTicketAccess(ticket, currentUser, auth);
+        checkViewAccess(ticket, currentUser);
 
         return attachmentRepository.findByTicketIdOrderByUploadedAtAsc(ticketId)
                 .stream()
@@ -187,7 +251,7 @@ public class AttachmentService {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found with id " + ticketId));
 
-        checkTicketAccess(ticket, currentUser, auth);
+        checkViewAccess(ticket, currentUser);
 
         TicketAttachment attachment = attachmentRepository.findByIdAndTicketId(attachmentId, ticketId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found with id " + attachmentId));
@@ -213,16 +277,35 @@ public class AttachmentService {
         TicketAttachment attachment = attachmentRepository.findByIdAndTicketId(attachmentId, ticketId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found with id " + attachmentId));
 
-        boolean isSystemAdmin = auth.getAuthorities().stream().anyMatch(a ->
-                a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
-
-        boolean isOwnerWhileOpen = ticket.getStatus() == Status.OPEN &&
-                attachment.getUploadedBy() != null &&
-                attachment.getUploadedBy().getId().equals(currentUser.getId());
-
-        if (!isSystemAdmin && !isOwnerWhileOpen) {
+        if (currentUser.getRole() == Role.SYSTEM_ADMINISTRATOR) {
+            // Administrative delete/cleanup allowed
+        } else if (ticket.getCreatedBy() != null && ticket.getCreatedBy().getId().equals(currentUser.getId())) {
+            if (ticket.getStatus() != Status.OPEN) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Ticket creators can only delete attachments while the ticket is OPEN");
+            }
+            if (attachment.getUploadedBy() == null || !attachment.getUploadedBy().getId().equals(currentUser.getId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Ticket creators can only delete attachments they uploaded themselves");
+            }
+        } else if (currentUser.getRole() == Role.SUPPORT_AGENT) {
+            if (ticket.getAssignedTo() == null ||
+                    !ticket.getAssignedTo().getId().equals(currentUser.getId()) ||
+                    !sameDepartment(ticket.getDepartment(), currentUser.getDepartment())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Support Agents can only delete attachments on tickets assigned to them in their department");
+            }
+            if (ticket.getStatus() != Status.IN_PROGRESS && ticket.getStatus() != Status.REOPENED) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Support Agents can only delete attachments while the ticket is active (IN_PROGRESS or REOPENED)");
+            }
+            if (attachment.getUploadedBy() == null || !attachment.getUploadedBy().getId().equals(currentUser.getId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Support Agents can only delete attachments that they uploaded themselves");
+            }
+        } else {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Access denied: Attachments can only be deleted by the uploader while the ticket is OPEN, or by a System Administrator");
+                    "Access denied: You are not authorized to delete this attachment");
         }
 
         // Delete physical file
