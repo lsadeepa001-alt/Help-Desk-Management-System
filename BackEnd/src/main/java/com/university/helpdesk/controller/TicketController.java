@@ -36,6 +36,7 @@ public class TicketController {
     private final TicketDeletionService ticketDeletionService;
     private final TicketService ticketService;
     private final TicketAssignmentHistoryRepository assignmentHistoryRepository;
+    private final com.university.helpdesk.service.AgentActivityLogService agentActivityLogService;
 
     private static final Set<String> TECHNICAL_DEPARTMENTS = Set.of("IT", "MAINTENANCE", "SECURITY");
 
@@ -46,7 +47,8 @@ public class TicketController {
                             NotificationService notificationService,
                             TicketDeletionService ticketDeletionService,
                             TicketService ticketService,
-                            TicketAssignmentHistoryRepository assignmentHistoryRepository) {
+                            TicketAssignmentHistoryRepository assignmentHistoryRepository,
+                            com.university.helpdesk.service.AgentActivityLogService agentActivityLogService) {
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
@@ -55,6 +57,7 @@ public class TicketController {
         this.ticketDeletionService = ticketDeletionService;
         this.ticketService = ticketService;
         this.assignmentHistoryRepository = assignmentHistoryRepository;
+        this.agentActivityLogService = agentActivityLogService;
     }
 
 
@@ -361,6 +364,18 @@ public class TicketController {
 
         Ticket saved = ticketRepository.save(ticket);
 
+        // Record agent activity log
+        try {
+            boolean isReroutedAction = wasRerouted && !sameDepartment(previousDepartment, newDepartment);
+            agentActivityLogService.logActivity(currentUser, saved,
+                    isReroutedAction ? AgentActivityAction.TICKET_REROUTED : AgentActivityAction.TICKET_ROUTED,
+                    isReroutedAction
+                            ? "Ticket rerouted from " + previousDepartment + " to " + newDepartment
+                            : "Ticket routed to " + newDepartment);
+        } catch (Exception e) {
+            System.err.println("Agent activity log recording failed: " + e.getMessage());
+        }
+
         // Record routing history
         try {
             TicketAssignmentHistory history = new TicketAssignmentHistory();
@@ -521,6 +536,19 @@ public class TicketController {
         }
 
         TicketComment saved = commentRepository.save(comment);
+
+        // Record agent activity log
+        try {
+            if (saved.isInternal()) {
+                agentActivityLogService.logActivity(author, ticket, AgentActivityAction.INTERNAL_NOTE_ADDED,
+                        "Internal note added by " + (author.getFullName() != null ? author.getFullName() : author.getUsername()));
+            } else {
+                agentActivityLogService.logActivity(author, ticket, AgentActivityAction.PUBLIC_COMMENT_ADDED,
+                        "Public comment added by " + (author.getFullName() != null ? author.getFullName() : author.getUsername()));
+            }
+        } catch (Exception e) {
+            System.err.println("Agent activity log recording failed: " + e.getMessage());
+        }
 
         try {
             notificationService.notifyNewComment(ticket, saved);

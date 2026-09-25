@@ -1,6 +1,8 @@
 package com.university.helpdesk.service;
 
 import com.university.helpdesk.model.*;
+import com.university.helpdesk.repository.AgentActivityLogRepository;
+import com.university.helpdesk.repository.AnalyticsInsightRepository;
 import com.university.helpdesk.repository.FeedbackRepository;
 import com.university.helpdesk.repository.TicketRepository;
 import com.university.helpdesk.repository.UserRepository;
@@ -19,6 +21,8 @@ public class AnalyticsService {
     private final TicketRepository ticketRepository;
     private final FeedbackRepository feedbackRepository;
     private final UserRepository userRepository;
+    private final AgentActivityLogRepository agentActivityLogRepository;
+    private final AnalyticsInsightRepository analyticsInsightRepository;
 
     @Value("${app.sla.threshold.low:72}")
     private long slaThresholdLow = 72;
@@ -37,10 +41,14 @@ public class AnalyticsService {
 
     public AnalyticsService(TicketRepository ticketRepository,
                             FeedbackRepository feedbackRepository,
-                            UserRepository userRepository) {
+                            UserRepository userRepository,
+                            AgentActivityLogRepository agentActivityLogRepository,
+                            AnalyticsInsightRepository analyticsInsightRepository) {
         this.ticketRepository = ticketRepository;
         this.feedbackRepository = feedbackRepository;
         this.userRepository = userRepository;
+        this.agentActivityLogRepository = agentActivityLogRepository;
+        this.analyticsInsightRepository = analyticsInsightRepository;
     }
 
     public long getThresholdHours(Priority priority) {
@@ -302,6 +310,34 @@ public class AnalyticsService {
             csv.append(escapeCsv(t.getCreatedAt() != null ? t.getCreatedAt().format(fmt) : "")).append(",");
             csv.append(escapeCsv(t.getResolvedAt() != null ? t.getResolvedAt().format(fmt) : "")).append(",");
             csv.append(escapeCsv(t.getResolutionNotes())).append("\n");
+        }
+
+        // Operational Agent Activity Logs Section
+        csv.append("\n\n--- OPERATIONAL AGENT ACTIVITY LOGS ---\n");
+        csv.append("Timestamp,Actor,Role,Department,Action,Ticket Number,Details\n");
+        List<AgentActivityLog> logs = agentActivityLogRepository.findAllByOrderByCreatedAtDesc();
+        for (AgentActivityLog log : logs) {
+            csv.append(escapeCsv(log.getCreatedAt() != null ? log.getCreatedAt().format(fmt) : "")).append(",");
+            csv.append(escapeCsv(log.getActorName())).append(",");
+            csv.append(escapeCsv(log.getActorRole() != null ? log.getActorRole().name() : "")).append(",");
+            csv.append(escapeCsv(log.getActorDepartment())).append(",");
+            csv.append(escapeCsv(log.getAction() != null ? log.getAction().name() : "")).append(",");
+            csv.append(escapeCsv(log.getTicket() != null ? log.getTicket().getTicketNumber() : "")).append(",");
+            csv.append(escapeCsv(log.getDetails())).append("\n");
+        }
+
+        // Management Analytics Insights Section
+        csv.append("\n\n--- MANAGEMENT ANALYTICS INSIGHTS ---\n");
+        csv.append("Timestamp,Author,Role,Department,Title,Content,Last Updated\n");
+        List<AnalyticsInsight> insights = analyticsInsightRepository.findAllByOrderByCreatedAtDesc();
+        for (AnalyticsInsight in : insights) {
+            csv.append(escapeCsv(in.getCreatedAt() != null ? in.getCreatedAt().format(fmt) : "")).append(",");
+            csv.append(escapeCsv(in.getAuthorName())).append(",");
+            csv.append(escapeCsv(in.getAuthorRole() != null ? in.getAuthorRole().name() : "")).append(",");
+            csv.append(escapeCsv(in.getDepartment())).append(",");
+            csv.append(escapeCsv(in.getTitle())).append(",");
+            csv.append(escapeCsv(in.getContent())).append(",");
+            csv.append(escapeCsv(in.getUpdatedAt() != null ? in.getUpdatedAt().format(fmt) : "")).append("\n");
         }
 
         return csv.toString();

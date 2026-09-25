@@ -2,11 +2,7 @@ package com.university.helpdesk.service;
 
 import com.university.helpdesk.model.Ticket;
 import com.university.helpdesk.model.TicketAttachment;
-import com.university.helpdesk.repository.FeedbackRepository;
-import com.university.helpdesk.repository.NotificationRepository;
-import com.university.helpdesk.repository.TicketAttachmentRepository;
-import com.university.helpdesk.repository.TicketCommentRepository;
-import com.university.helpdesk.repository.TicketRepository;
+import com.university.helpdesk.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -23,7 +19,8 @@ public class TicketDeletionService {
     private final FeedbackRepository feedbackRepository;
     private final NotificationRepository notificationRepository;
     private final AttachmentService attachmentService;
-    private final com.university.helpdesk.repository.TicketAssignmentHistoryRepository assignmentHistoryRepository;
+    private final TicketAssignmentHistoryRepository assignmentHistoryRepository;
+    private final AgentActivityLogRepository agentActivityLogRepository;
 
     public TicketDeletionService(TicketRepository ticketRepository,
                                  TicketAttachmentRepository attachmentRepository,
@@ -31,7 +28,8 @@ public class TicketDeletionService {
                                  FeedbackRepository feedbackRepository,
                                  NotificationRepository notificationRepository,
                                  AttachmentService attachmentService,
-                                 com.university.helpdesk.repository.TicketAssignmentHistoryRepository assignmentHistoryRepository) {
+                                 TicketAssignmentHistoryRepository assignmentHistoryRepository,
+                                 AgentActivityLogRepository agentActivityLogRepository) {
         this.ticketRepository = ticketRepository;
         this.attachmentRepository = attachmentRepository;
         this.commentRepository = commentRepository;
@@ -39,6 +37,7 @@ public class TicketDeletionService {
         this.notificationRepository = notificationRepository;
         this.attachmentService = attachmentService;
         this.assignmentHistoryRepository = assignmentHistoryRepository;
+        this.agentActivityLogRepository = agentActivityLogRepository;
     }
 
     @Transactional
@@ -46,6 +45,7 @@ public class TicketDeletionService {
         Long ticketId = ticket.getId();
         List<TicketAttachment> attachments = attachmentRepository.findByTicketIdOrderByUploadedAtAsc(ticketId);
 
+        agentActivityLogRepository.deleteByTicketId(ticketId);
         assignmentHistoryRepository.deleteByTicketId(ticketId);
         feedbackRepository.deleteByTicketId(ticketId);
         commentRepository.deleteByTicketId(ticketId);

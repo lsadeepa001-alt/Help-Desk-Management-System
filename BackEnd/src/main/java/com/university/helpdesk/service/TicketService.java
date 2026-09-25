@@ -28,19 +28,22 @@ public class TicketService {
     private final TicketCommentRepository commentRepository;
     private final NotificationService notificationService;
     private final TicketAssignmentHistoryRepository assignmentHistoryRepository;
+    private final AgentActivityLogService agentActivityLogService;
 
     public TicketService(TicketRepository ticketRepository,
                          UserRepository userRepository,
                          CategoryRepository categoryRepository,
                          TicketCommentRepository commentRepository,
                          NotificationService notificationService,
-                         TicketAssignmentHistoryRepository assignmentHistoryRepository) {
+                         TicketAssignmentHistoryRepository assignmentHistoryRepository,
+                         AgentActivityLogService agentActivityLogService) {
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
         this.commentRepository = commentRepository;
         this.notificationService = notificationService;
         this.assignmentHistoryRepository = assignmentHistoryRepository;
+        this.agentActivityLogService = agentActivityLogService;
     }
 
 
@@ -139,6 +142,14 @@ public class TicketService {
         ticket.setStatus(Status.IN_PROGRESS);
         Ticket updated = ticketRepository.save(ticket);
 
+        // Record agent activity log
+        try {
+            agentActivityLogService.logActivity(currentUser, updated, AgentActivityAction.TICKET_CLAIMED,
+                    "Ticket claimed by agent " + (currentUser.getFullName() != null ? currentUser.getFullName() : currentUser.getUsername()));
+        } catch (Exception e) {
+            System.err.println("Agent activity log recording failed: " + e.getMessage());
+        }
+
         // Record assignment history
         try {
             TicketAssignmentHistory history = new TicketAssignmentHistory();
@@ -206,6 +217,23 @@ public class TicketService {
         }
 
         Ticket updated = ticketRepository.save(ticket);
+
+        // Record agent activity log
+        try {
+            if (assignedAgent == null) {
+                agentActivityLogService.logActivity(currentUser, updated, AgentActivityAction.STATUS_CHANGED,
+                        "Ticket unassigned by " + (currentUser.getFullName() != null ? currentUser.getFullName() : currentUser.getUsername()));
+            } else if (previousAgent != null && !previousAgent.getId().equals(assignedAgent.getId())) {
+                agentActivityLogService.logActivity(currentUser, updated, AgentActivityAction.TICKET_REASSIGNED,
+                        "Reassigned from " + (previousAgent.getFullName() != null ? previousAgent.getFullName() : previousAgent.getUsername()) +
+                                " to " + (assignedAgent.getFullName() != null ? assignedAgent.getFullName() : assignedAgent.getUsername()));
+            } else {
+                agentActivityLogService.logActivity(currentUser, updated, AgentActivityAction.TICKET_ASSIGNED,
+                        "Assigned to " + (assignedAgent.getFullName() != null ? assignedAgent.getFullName() : assignedAgent.getUsername()));
+            }
+        } catch (Exception e) {
+            System.err.println("Agent activity log recording failed: " + e.getMessage());
+        }
 
         // Record assignment history
         try {
@@ -305,6 +333,19 @@ public class TicketService {
         ticket.setStatus(newStatus);
         Ticket updated = ticketRepository.save(ticket);
 
+        // Record agent activity log
+        try {
+            if (newStatus == Status.RESOLVED) {
+                agentActivityLogService.logActivity(currentUser, updated, AgentActivityAction.TICKET_RESOLVED,
+                        "Ticket resolved with notes: " + (notes != null ? notes.trim() : ""));
+            } else {
+                agentActivityLogService.logActivity(currentUser, updated, AgentActivityAction.STATUS_CHANGED,
+                        "Status changed from " + oldStatus + " to " + newStatus);
+            }
+        } catch (Exception e) {
+            System.err.println("Agent activity log recording failed: " + e.getMessage());
+        }
+
         if (oldStatus != newStatus) {
             try {
                 notificationService.notifyStatusUpdated(updated, oldStatus, newStatus);
@@ -366,6 +407,14 @@ public class TicketService {
         }
 
         Ticket updated = ticketRepository.save(ticket);
+
+        // Record agent activity log
+        try {
+            agentActivityLogService.logActivity(currentUser, updated, AgentActivityAction.TICKET_REOPENED,
+                    "Ticket reopened. Reason: " + (reason != null && !reason.isBlank() ? reason.trim() : "No reason provided"));
+        } catch (Exception e) {
+            System.err.println("Agent activity log recording failed: " + e.getMessage());
+        }
 
         try {
             notificationService.notifyStatusUpdated(updated, oldStatus, Status.REOPENED);
