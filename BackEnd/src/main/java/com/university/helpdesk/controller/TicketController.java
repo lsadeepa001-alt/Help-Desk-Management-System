@@ -551,4 +551,10 @@ public class TicketController {
 
         return ResponseEntity.ok(history);
     }
+
+    // ─── GET CATEGORIES ──────────────────────────────────────────────────────
+    @GetMapping("/categories")
+    public ResponseEntity<List<Category>> getCategories() {
+        return ResponseEntity.ok(categoryRepository.findAll());
+    }
 }

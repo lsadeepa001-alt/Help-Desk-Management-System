@@ -26,17 +26,26 @@ public class PasswordResetService {
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${app.password-reset-token-expiration-minutes:15}")
     private long expirationMinutes;
 
+    @Value("${app.password-reset.self-service:true}")
+    private boolean selfServiceEnabled;
+
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
+
     public PasswordResetService(UserRepository userRepository,
                                 PasswordResetTokenRepository tokenRepository,
-                                PasswordEncoder passwordEncoder) {
+                                PasswordEncoder passwordEncoder,
+                                EmailService emailService) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
         this.passwordEncoder = passwordEncoder;
+        this.emailService = emailService;
     }
 
     @Transactional
@@ -49,7 +58,30 @@ public class PasswordResetService {
 
             PasswordResetToken token = new PasswordResetToken();
             token.setUser(user);
-            tokenRepository.save(token);
+
+            if (selfServiceEnabled) {
+                byte[] randomBytes = new byte[32];
+                secureRandom.nextBytes(randomBytes);
+                String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+                LocalDateTime expiresAt = now.plusMinutes(expirationMinutes);
+
+                token.setTokenHash(hashToken(rawToken));
+                token.setIssuedAt(now);
+                token.setExpiresAt(expiresAt);
+                tokenRepository.save(token);
+
+                String resetLink = frontendUrl + "/reset-password?token=" + rawToken;
+                String subject = "UniAssist 360 - Password Reset Request";
+                String body = "Hello " + (user.getFullName() != null ? user.getFullName() : user.getUsername()) + ",\n\n"
+                        + "A password reset request was received for your UniAssist 360 account.\n\n"
+                        + "Click the link below to set a new password:\n"
+                        + resetLink + "\n\n"
+                        + "This link will expire in " + expirationMinutes + " minutes.\n"
+                        + "If you did not request this, please ignore this email.";
+                emailService.sendEmail(user.getEmail(), subject, body);
+            } else {
+                tokenRepository.save(token);
+            }
         });
     }
 

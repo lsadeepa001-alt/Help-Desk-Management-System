@@ -89,6 +89,7 @@ export default function AiChatbotModal({ onNavigateToCreateTicket }) {
         text: res.data.reply || "I am here to assist with university services.",
         matchedArticleId: res.data.matchedArticleId,
         canDeflect: res.data.canDeflect !== false,
+        needsEscalation: res.data.needsEscalation === true,
         userQuery: query.trim(),
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
@@ -238,8 +239,28 @@ export default function AiChatbotModal({ onNavigateToCreateTicket }) {
                   </div>
                 </div>
 
+                {/* Prominent Escalation Action (when knowledge base has no match) */}
+                {m.sender === 'bot' && m.needsEscalation && (
+                  <div className="ml-9 mt-2 p-3.5 bg-gradient-to-r from-amber-950/40 via-slate-800 to-rose-950/30 border border-amber-500/40 rounded-2xl space-y-2.5 max-w-[85%] shadow-lg">
+                    <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
+                      <span>🎫</span>
+                      <span>Formal Support Ticket Required</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-snug">
+                      No automated solution was found in our knowledge base. Submit a ticket directly to our departmental support agents for personalized assistance.
+                    </p>
+                    <button
+                      onClick={() => handleCreateTicketFromChat(m.userQuery || 'Technical Inquiry', m.text)}
+                      className="w-full py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/30 transition flex items-center justify-center gap-2"
+                    >
+                      <span>➕</span>
+                      <span>Create Support Ticket</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Deflection Action Buttons (for bot messages that offer deflection) */}
-                {m.sender === 'bot' && m.canDeflect && !m.isResolved && (
+                {m.sender === 'bot' && m.canDeflect && !m.needsEscalation && !m.isResolved && (
                   <div className="ml-9 mt-2 p-3 bg-slate-800/80 border border-indigo-500/30 rounded-xl space-y-2 max-w-[82%]">
                     <p className="text-[11px] font-semibold text-indigo-300">Did this resolve your inquiry?</p>
                     <div className="flex gap-2">

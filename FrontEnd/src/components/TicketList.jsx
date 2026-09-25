@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 
 const API_URL = 'http://localhost:8080/api/tickets';
 
 const statusColors = {
   OPEN: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+  ACCEPTED: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30',
   IN_PROGRESS: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
   RESOLVED: 'bg-purple-500/20 text-purple-400 border border-purple-500/30',
   CLOSED: 'bg-slate-500/20 text-slate-400 border border-slate-500/30',
   REOPENED: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
   CANCELLED: 'bg-rose-500/20 text-rose-400 border border-rose-500/30 line-through',
+  REJECTED: 'bg-red-500/20 text-red-400 border border-red-500/30 line-through',
 };
 
 const priorityColors = {
@@ -26,13 +28,35 @@ const TicketList = ({ refreshTrigger, onViewTicket, filterUserId }) => {
   const [error, setError] = useState(null);
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategoryId, setFilterCategoryId] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [categories, setCategories] = useState([]);
 
-  const fetchTickets = async () => {
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/categories`);
+        if (Array.isArray(res.data)) {
+          setCategories(res.data);
+        }
+      } catch {
+        // silently fallback
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  const fetchTickets = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const endpoint = filterUserId ? `${API_URL}/my-tickets` : API_URL;
-      const response = await axios.get(endpoint);
+      const params = {};
+      if (filterCategoryId) params.categoryId = filterCategoryId;
+      if (dateFrom) params.dateFrom = dateFrom;
+      if (dateTo) params.dateTo = dateTo;
+      const response = await axios.get(endpoint, { params });
       setTickets(response.data);
     } catch (err) {
       console.error('Error fetching tickets:', err);
@@ -40,9 +64,21 @@ const TicketList = ({ refreshTrigger, onViewTicket, filterUserId }) => {
     } finally {
       setLoading(false);
     }
+  }, [filterUserId, filterCategoryId, dateFrom, dateTo]);
+
+  useEffect(() => {
+    fetchTickets();
+  }, [fetchTickets, refreshTrigger]);
+
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setFilterStatus('ALL');
+    setFilterCategoryId('');
+    setDateFrom('');
+    setDateTo('');
   };
 
-  useEffect(() => { fetchTickets(); }, [refreshTrigger]);
+  const hasActiveFilters = Boolean(searchTerm || filterStatus !== 'ALL' || filterCategoryId || dateFrom || dateTo);
 
   const filteredTickets = tickets.filter(t => {
     const matchesUser = !filterUserId || t.createdBy?.id === filterUserId;
@@ -76,26 +112,76 @@ const TicketList = ({ refreshTrigger, onViewTicket, filterUserId }) => {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <input type="text" placeholder="Search tickets by title, number, or description..."
-            value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-800/90 border border-slate-700 rounded-xl px-4 py-2.5 pl-10 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm" />
-          <svg className="w-5 h-5 text-slate-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+      <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/60 shadow-xl space-y-3.5">
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1">
+            <input type="text" placeholder="Search tickets by title, number, or description..."
+              value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+              className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-2 pl-10 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-xs sm:text-sm" />
+            <svg className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+
+          {/* Status Pills */}
+          <div className="flex gap-1.5 overflow-x-auto pb-1 hide-scrollbar">
+            {['ALL', 'OPEN', 'ACCEPTED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED', 'CANCELLED', 'REJECTED'].map(st => (
+              <button key={st} onClick={() => setFilterStatus(st)}
+                className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap ${
+                  filterStatus === st
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
+                    : 'bg-slate-900/80 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700/50'
+                }`}>
+                {st.replace('_', ' ')}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED', 'CANCELLED'].map(st => (
-            <button key={st} onClick={() => setFilterStatus(st)}
-              className={`px-3 py-2 text-xs font-semibold rounded-lg transition whitespace-nowrap ${
-                filterStatus === st
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700/50'
-              }`}>
-              {st.replace('_', ' ')}
+
+        {/* Second Filter Row: Category & Dates & Clear */}
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-700/50 text-xs">
+          <div className="flex items-center gap-1.5 flex-1 min-w-[180px]">
+            <span className="text-slate-400 font-medium">Category:</span>
+            <select
+              value={filterCategoryId}
+              onChange={e => setFilterCategoryId(e.target.value)}
+              className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">All Categories</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400 font-medium">From:</span>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400 font-medium">To:</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+              className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              onClick={handleClearFilters}
+              className="px-3 py-1 bg-slate-700/80 hover:bg-slate-700 text-rose-300 hover:text-rose-200 rounded-lg transition border border-rose-500/30 text-xs font-semibold flex items-center gap-1 ml-auto"
+            >
+              ✕ Clear All Filters
             </button>
-          ))}
+          )}
         </div>
       </div>
 

@@ -1,146 +1,197 @@
-# UniAssist 360 – Engineering Change Report
+# UniAssist 360 – Engineering Implementation Report
 
 **Project:** UniAssist 360 (University Help Desk Management System)  
 **Academic Baseline:** SLIIT SE2030 (Group KU-09)  
-**Scope of Report:** Changes implemented across the last two prompts covering missing features, security remediations, compile resolution, and SLA compliance engine.
+**Scope of Report:** Implementation and end-to-end integration of partially implemented features (Tasks 1 through 7), security hardening, and complete verification across backend and frontend architectures.
 
 ---
 
 ## 1. Executive Summary
 
-This report documents the architectural, security, and feature implementations completed during the last two execution prompts:
-1. **Missing Features & Security Hardenings:** Added ticket assignment/ownership audit trails, user notification preferences, decoupled email delivery, IDOR remediation in notification and chatbot subsystems, and ticket list category/date filtering.
-2. **Compile Error Resolution & SLA Compliance Engine:** Resolved the compile error where `AnalyticsController.java` called `analyticsService.getSlaCompliance()` which was missing in `AnalyticsService.java`. Implemented a configurable, robust SLA compliance engine supporting all five `Priority` levels, resolved referential constraint issues on ticket deletion, and verified complete system health across the backend and frontend.
+This report documents the completion of the seven core feature extensions identified in the UniAssist 360 project. All tasks focused on finishing existing partial implementations without introducing out-of-scope modules (e.g., Agent Activity Logs and Manager Analytics Comments/Insights remain intentionally unstarted for the subsequent milestone).
+
+Key deliverables completed:
+1. **Assignment History Timeline:** Connected the backend audit trail to [`TicketDetails.jsx`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/FrontEnd/src/components/TicketDetails.jsx) with real-time updates upon ticket claim, assignment, and department routing.
+2. **Notification Preferences:** Wired [`NotificationService.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/service/NotificationService.java) to check individual user preferences for delivery channels (`inAppEnabled`, `emailEnabled`) and event types, backed by an interactive management card in [`ProfilePage.jsx`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/FrontEnd/src/pages/ProfilePage.jsx).
+3. **Email Subsystem Integration:** Connected [`EmailService.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/service/EmailService.java) to notification dispatch and password reset flows with strictly non-blocking error handling.
+4. **Self-Service Password Reset:** Delivered full self-service reset token generation, SHA-256 hash persistence, email dispatch with reset links, query parameter token extraction in [`PasswordResetPage.jsx`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/FrontEnd/src/pages/PasswordResetPage.jsx), and automatic JWT token-version invalidation upon password reset.
+5. **SLA Analytics Frontend:** Integrated the `GET /api/analytics/sla-compliance` engine into [`AnalyticsDashboard.jsx`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/FrontEnd/src/components/AnalyticsDashboard.jsx), displaying executive KPI summary cards and a detailed per-priority compliance table with configured SLA thresholds.
+6. **Ticket Date/Category Filtering:** Extended [`TicketList.jsx`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/FrontEnd/src/components/TicketList.jsx) with category dropdowns, Date From/To inputs, and a "Clear All Filters" button communicating directly with backend filter parameters.
+7. **Chatbot FAQ Grounding & Escalation:** Grounded [`GeminiAiService.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/service/GeminiAiService.java) on campus knowledge base articles to prevent hallucination, adding `needsEscalation` signaling and prominent "Create Support Ticket" escalation in [`AiChatbotModal.jsx`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/FrontEnd/src/components/AiChatbotModal.jsx).
 
 ---
 
-## 2. Changes Implemented by Component
+## 2. Feature Breakdown (Completed & Partial)
 
-### A. Core Ticket Lifecycle & Assignment History Subsystem
-* **New Enum:** [`AssignmentAction.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/model/AssignmentAction.java)
-  * Defines event types: `ASSIGNED`, `REASSIGNED`, `CLAIMED`, `ROUTED`, `REROUTED`, `UNASSIGNED`.
-* **New Entity:** [`TicketAssignmentHistory.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/model/TicketAssignmentHistory.java)
-  * Stores immutable audit records: `ticket`, `action`, `previousAgent`, `newAgent`, `previousDepartment`, `newDepartment`, `changedBy`, and `changedAt`.
-  * Configured with Hibernate `@OnDelete(action = OnDeleteAction.CASCADE)` to maintain database-level referential integrity on ticket deletion.
-* **New Repository:** [`TicketAssignmentHistoryRepository.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/repository/TicketAssignmentHistoryRepository.java)
-  * Provides `findByTicketIdOrderByChangedAtAsc(Long ticketId)` and `@Modifying @Query deleteByTicketId(@Param("ticketId") Long ticketId)`.
-* **New DTO:** [`AssignmentHistoryDTO.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/dto/AssignmentHistoryDTO.java)
-  * Safe view-only projection omitting sensitive internal entity fields while providing display-ready actor names and roles.
-* **Lifecycle Recording in Services & Controllers:**
-  * [`TicketService.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/service/TicketService.java):
-    * Updated `claimTicket()` to record `CLAIMED` history on self-assignment.
-    * Updated `assignTicket()` to record `ASSIGNED`, `REASSIGNED`, or `UNASSIGNED` events.
-  * [`TicketController.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/controller/TicketController.java):
-    * Enforced Team Lead department scoping on ticket rerouting (Team Leads can only reroute tickets in their own department; Admins can reroute any).
-    * Guaranteed that if rerouting removes the assigned agent, tickets in `IN_PROGRESS` transition back to `OPEN` rather than becoming orphaned in-progress.
-    * Added `GET /api/tickets/{id}/assignment-history` protected by ticket-view authorization rules.
-  * [`TicketDeletionService.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/service/TicketDeletionService.java):
-    * Added `assignmentHistoryRepository.deleteByTicketId(ticketId)` to prevent foreign key constraint violations upon permanent ticket deletion.
+| Feature / Subsystem | Prior State | Current State | Notes |
+| :--- | :--- | :--- | :--- |
+| **Assignment History** | Backend entities & repository existed; endpoint existed | **100% Complete** | Interactive timeline UI integrated into `TicketDetails.jsx`, real-time refresh on claim/assign/route. |
+| **Notification Preferences** | DB entity & controller existed; service bypassed preferences | **100% Complete** | `NotificationService.java` enforces channel and event checks; `ProfilePage.jsx` provides UI toggles. |
+| **Email Integration** | `EmailService.java` existed as stub | **100% Complete** | Wired to notification events and password reset; non-blocking delivery guarantees ticket operations succeed. |
+| **Password Reset** | Admin-assisted fallback flow | **100% Complete** | Self-service random token generation, DB hash storage, email link delivery, query param auto-fill in UI. |
+| **SLA Analytics** | Backend calculation engine in `AnalyticsService.java` | **100% Complete** | Frontend KPI cards and per-priority threshold breakdown rendered in `AnalyticsDashboard.jsx`. |
+| **Ticket Filtering** | Backend controller accepted `categoryId`, `dateFrom`, `dateTo` | **100% Complete** | Added category select, date pickers, clear filters button, and all status pills in `TicketList.jsx`. |
+| **Chatbot Grounding** | Chatbot attempted general Gemini responses | **100% Complete** | Strictly grounded on verified KB articles; unknown policies trigger escalation without hallucinating. |
+| **Agent Activity Logs** | Not implemented | **Deferred** | Intentionally postponed to next milestone per prompt directive. |
+| **Manager Analytics Comments** | Not implemented | **Deferred** | Intentionally postponed to next milestone per prompt directive. |
 
 ---
 
-### B. Notification Preferences & Email Decoupling
-* **New Entity:** [`UserNotificationPreferences.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/model/UserNotificationPreferences.java)
-  * Stores individual user notification channel toggles: `inAppEnabled`, `emailEnabled`, `ticketCreatedEnabled`, `ticketAssignedEnabled`, `statusUpdatedEnabled`, `newCommentEnabled`, and `csatRequestEnabled`.
-* **New Repository:** [`UserNotificationPreferencesRepository.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/repository/UserNotificationPreferencesRepository.java)
-  * Allows querying preferences by `userId`.
-* **New Service:** [`EmailService.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/service/EmailService.java)
-  * Wraps Spring's `JavaMailSender` with optional autowiring (`@Autowired(required = false)`).
-  * Controlled by environment variable `EMAIL_ENABLED` (default: `false`).
-  * Catches and logs all delivery errors, ensuring email transport failure never rolls back transactional ticket lifecycle actions.
-* **Controller IDOR Fix:** [`NotificationController.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/controller/NotificationController.java)
-  * **Critical IDOR Remediation:** Removed untrusted `@RequestParam Long userId`. Current user is now resolved directly from the verified Spring Security `Authentication` principal.
-  * Enforced object-level ownership checks for marking single notifications as read and deleting notifications.
-  * Added `GET /api/notifications/preferences` and `PUT /api/notifications/preferences`.
+## 3. Task 1: Assignment History (Backend & Frontend)
+
+### Implementation Details
+* **Backend:**
+  * [`AssignmentAction.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/model/AssignmentAction.java): Enumerates `CLAIMED`, `ASSIGNED`, `REASSIGNED`, `ROUTED`, `REROUTED`, `UNASSIGNED`.
+  * [`TicketAssignmentHistory.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/model/TicketAssignmentHistory.java): Entity mapping previous and new assignees, previous and new departments, changedBy user, and timestamp. Includes `@OnDelete(action = OnDeleteAction.CASCADE)` for DB referential integrity.
+  * [`TicketAssignmentHistoryRepository.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/repository/TicketAssignmentHistoryRepository.java): Provides `findByTicketIdOrderByChangedAtAsc(Long ticketId)` and `deleteByTicketId(Long ticketId)`.
+  * [`TicketService.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/service/TicketService.java): Hooks record `CLAIMED` on self-assignment and `ASSIGNED`/`REASSIGNED` on delegation.
+  * [`TicketController.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/controller/TicketController.java): Exposes `GET /api/tickets/{id}/assignment-history` governed by ticket read permissions.
+* **Frontend:**
+  * [`TicketDetails.jsx`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/FrontEnd/src/components/TicketDetails.jsx):
+    * Added `assignmentHistory` state and `fetchAssignmentHistory` callback.
+    * Triggered on initial load via `Promise.all` and after `handleClaimTicket`, `handleReassignTicket`, and `handleRouteTicket`.
+    * Rendered a responsive vertical timeline card below attachments, color-coded by event type with actor and timestamp details.
 
 ---
 
-### C. Security Hardening & Knowledge Base/Chatbot Protection
-* **CORS & Global Configuration:**
-  * [`SecurityConfig.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/security/SecurityConfig.java):
-    * Replaced wildcard `allowedOriginPatterns("*")` with configurable `app.cors.allowed-origin` (overridable via `FRONTEND_ORIGIN`).
-    * Configured public access for FAQ deflection chatbot (`/kb/chatbot/ask`) while securing ticket-status lookups (`/kb/chatbot/ticket-status/**`).
-  * Removed `@CrossOrigin(origins = "*")` from controllers (`TicketController`, `KbController`, `AnalyticsController`).
-* **Author Integrity & Ticket Status Privacy:** [`KbController.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/controller/KbController.java)
-  * KB article author is now derived directly from the authenticated user token; client-supplied `authorId` values in request payloads are ignored.
-  * Added object-level authorization to `GET /kb/chatbot/ticket-status/{ticketNumber}` ensuring students/lecturers can only check their own tickets, while support staff/leads can view tickets within their department and administrators can view all.
+## 4. Task 2 & 3: Notification Preferences & Non-blocking Email Delivery
+
+### Implementation Details
+* **Preferences Storage:**
+  * [`UserNotificationPreferences.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/model/UserNotificationPreferences.java): Stores `inAppEnabled`, `emailEnabled`, `ticketCreatedEnabled`, `ticketAssignedEnabled`, `statusUpdatedEnabled`, `newCommentEnabled`, and `csatRequestEnabled`.
+  * [`NotificationService.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/service/NotificationService.java):
+    * Injected `UserNotificationPreferencesRepository` and `EmailService`.
+    * Every notification trigger checks recipient preferences before saving to DB or sending email.
+* **Email Delivery Architecture:**
+  * [`EmailService.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/service/EmailService.java):
+    * Centralized mail service using Spring's `JavaMailSender`.
+    * Controlled by `app.email.enabled` (default `false`).
+    * All email operations are wrapped in try-catch logging so SMTP timeouts or delivery failures never roll back ticket transactions.
+* **Frontend UI:**
+  * [`ProfilePage.jsx`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/FrontEnd/src/pages/ProfilePage.jsx):
+    * Added "Notification Delivery Preferences" card below profile form.
+    * Allows toggling delivery channels (In-App, Email) and individual event subscriptions.
+    * Communicates with `GET /api/notifications/preferences` and `PUT /api/notifications/preferences`.
 
 ---
 
-### D. Ticket Search & Filtering (Phase 5)
-* **API Filtering Parameters:** [`TicketController.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/controller/TicketController.java)
-  * Extended `GET /api/tickets` and `GET /api/tickets/my-tickets` with optional query parameters:
-    * `categoryId` (Long)
-    * `dateFrom` (ISO date string)
-    * `dateTo` (ISO date string)
-  * Preserved strict role-based department and assignment visibility so query filters cannot bypass access boundaries.
+## 5. Task 4: Self-Service Password Reset
+
+### Implementation Details
+* **Backend Security:**
+  * [`PasswordResetService.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/service/PasswordResetService.java):
+    * Injected `EmailService` and added `app.password-reset.self-service` toggle (defaults to `true` in production; set to `false` in test environment to preserve backward-compatible admin fallback test assertions).
+    * When self-service is requested: generates 32-byte cryptographically secure random token, stores SHA-256 hash in database (`tokenHash`), and dispatches reset email containing `${frontendUrl}/reset-password?token=${rawToken}`.
+    * Raw token is never persisted in database, never returned in API response, and never logged.
+    * Unknown email requests return the exact same generic success message (`"If this email is registered, you will receive password reset instructions."`), preventing account enumeration.
+    * Upon confirming reset with valid unexpired token, the user's password is encrypted, `tokenVersion` is incremented (invalidating all active JWT sessions), and the token is marked as used.
+* **Frontend UI:**
+  * [`PasswordResetPage.jsx`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/FrontEnd/src/pages/PasswordResetPage.jsx):
+    * Automatically extracts `token` from URL query parameter (`searchParams.get('token')`).
+    * Displays explanatory banner when token is auto-filled from email verification link.
+    * Replaced administrator contact text with automated email dispatch notification.
 
 ---
 
-### E. Analytics Standardization & SLA Compliance Engine (Phase 4 & Prompt 2)
-* **CSAT Metric Standardization:** [`AnalyticsService.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/service/AnalyticsService.java)
-  * Standardized CSAT metrics to match academic and industry requirements:
-    * `avgCsatRating`: Arithmetic average of ratings (1.0 to 5.0 scale).
-    * `satisfactionRatePercentage`: Percentage of responses with rating ≥ 4.
-* **Configurable SLA Thresholds:**
-  * Added configuration properties in [`application.properties`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/resources/application.properties) with environment overrides:
-    * `app.sla.threshold.low=${SLA_THRESHOLD_LOW:72}` (72h)
-    * `app.sla.threshold.medium=${SLA_THRESHOLD_MEDIUM:48}` (48h)
-    * `app.sla.threshold.high=${SLA_THRESHOLD_HIGH:24}` (24h)
-    * `app.sla.threshold.urgent=${SLA_THRESHOLD_URGENT:8}` (8h)
-    * `app.sla.threshold.critical=${SLA_THRESHOLD_CRITICAL:4}` (4h)
-* **SLA Engine Implementation:** [`AnalyticsService.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/service/AnalyticsService.java)
-  * Implemented `public Map<String, Object> getSlaCompliance()`:
-    * **Terminal Status Exclusion:** Excludes `Status.CANCELLED` and `Status.REJECTED` from SLA measurements.
-    * **Resolved/Closed Tickets:** Calculates elapsed duration from `createdAt` to `resolvedAt` against the priority threshold.
-    * **Active Unresolved Tickets:** Calculates elapsed age from `createdAt` to current time (`LocalDateTime.now()`) against the priority threshold.
-    * **Zero-Ticket & Safe Math:** Prevents divide-by-zero errors when measured count or priority count is zero, defaulting compliance to `0.0`.
-    * **Payload Structure:**
-      * `totalMeasuredTickets`
-      * `slaMetCount`
-      * `slaBreachedCount`
-      * `compliancePercentage`
-      * `perPriority` (nested map for `LOW`, `MEDIUM`, `HIGH`, `URGENT`, `CRITICAL` containing `thresholdHours`, `total`, `met`, `breached`, `compliancePercentage`)
-* **Endpoint Exposure:** [`AnalyticsController.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/controller/AnalyticsController.java)
-  * Exposed `GET /api/analytics/sla-compliance` restricted to `MANAGER_EXECUTIVE` and `SYSTEM_ADMINISTRATOR`.
+## 6. Task 5: SLA Analytics Frontend Integration
+
+### Implementation Details
+* **Backend SLA Engine:**
+  * [`AnalyticsService.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/service/AnalyticsService.java):
+    * Implemented `getSlaCompliance()` measuring creation-to-resolution elapsed time (for resolved/closed tickets) and ticket age against configured threshold (for active tickets).
+    * Configurable via `app.sla.threshold.*` properties for all five priorities (`LOW`, `MEDIUM`, `HIGH`, `URGENT`, `CRITICAL`).
+    * Excludes terminal non-resolution statuses (`CANCELLED`, `REJECTED`).
+    * Handles zero-ticket edge cases safely without division by zero.
+* **Frontend Dashboard:**
+  * [`AnalyticsDashboard.jsx`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/FrontEnd/src/components/AnalyticsDashboard.jsx):
+    * Fetches `GET /api/analytics/sla-compliance` for `MANAGER_EXECUTIVE` and `SYSTEM_ADMINISTRATOR`.
+    * Renders Executive SLA Overview KPI cards: Total Measured, Within SLA Target, and SLA Breached.
+    * Renders a Per-Priority SLA Breakdown Table displaying configured threshold hours, measured ticket counts, SLA met/breached counts, and compliance percentages with visual progress meters.
 
 ---
 
-## 3. Test Suites & Verification
+## 7. Task 6: Ticket Date/Category Filter UI
 
-### A. New Regression Suite: `AnalyticsSlaTest.java`
-Created [`AnalyticsSlaTest.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/test/java/com/university/helpdesk/AnalyticsSlaTest.java) with 6 automated test scenarios:
-1. `zeroTicketsHandledSafely` — Verifies zero-ticket scenario produces clean 0.0 metrics without mathematical errors.
-2. `terminalStatesExcluded` — Confirms CANCELLED and REJECTED tickets do not alter SLA measurements.
-3. `resolvedAndClosedTicketsMeasurement` — Validates creation-to-resolution duration against SLA thresholds.
-4. `activeUnresolvedTicketsMeasurement` — Validates active ticket age against thresholds (detects active breaches).
-5. `supportsAllPrioritiesAndConfigurableThresholds` — Tests all 5 priorities and custom threshold overrides.
-6. `endpointAuthorization` — Confirms 200 OK for `MANAGER_EXECUTIVE` and `SYSTEM_ADMINISTRATOR`, and 403 Forbidden for `STUDENT`.
-
-### B. Verification Run Results
-
-| Check / Test Target | Command | Result | Details |
-| :--- | :--- | :---: | :--- |
-| **Backend Compilation** | `mvn test-compile` | **PASS** | 62 main classes, 7 test classes compiled cleanly |
-| **SLA Focused Tests** | `mvn test -Dtest=AnalyticsSlaTest` | **PASS** | 6 tests passed, 0 failures, 0 errors |
-| **Full Backend Suite** | `mvn test` | **PASS** | 63 tests passed across all test classes, 0 failures, 0 errors |
-| **Frontend Build** | `npm run build` | **PASS** | Production client bundle built in 1.42s |
-| **Frontend Lint** | `npm run lint` | **PASS** | 0 lint errors (17 non-blocking warnings) |
-| **Git Diff Check** | `git diff --check` | **PASS** | 0 whitespace or merge conflict markers |
-
-### C. Test Suite Breakdown (Full Suite: 63 Tests)
-* `com.university.helpdesk.AnalyticsSlaTest`: **6/6 passed**
-* `com.university.helpdesk.CleanStartupDataTest`: **1/1 passed**
-* `com.university.helpdesk.Module1SecurityTest`: **9/9 passed**
-* `com.university.helpdesk.RoleAccessAndAttachmentSecurityTest`: **25/25 passed**
-* `com.university.helpdesk.SupportAgentResolutionSecurityTest`: **6/6 passed**
-* `com.university.helpdesk.TicketCancellationSecurityTest`: **8/8 passed**
-* `com.university.helpdesk.TicketWorkflowSecurityTest`: **8/8 passed**
+### Implementation Details
+* **Backend Endpoint:**
+  * Added `GET /api/tickets/categories` in [`TicketController.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/controller/TicketController.java) and permitted it in [`SecurityConfig.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/security/SecurityConfig.java).
+  * Existing `GET /api/tickets` and `GET /api/tickets/my-tickets` filter logic accepts `categoryId`, `dateFrom`, and `dateTo`.
+* **Frontend Controls:**
+  * [`TicketList.jsx`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/FrontEnd/src/components/TicketList.jsx):
+    * Added Category dropdown (populated from `/categories`), Date From picker, Date To picker, and search bar.
+    * Included all valid proposal statuses in the filter pills: `OPEN`, `ACCEPTED`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`, `REOPENED`, `CANCELLED`, `REJECTED`.
+    * Added "Clear All Filters" button which resets all filter criteria.
 
 ---
 
-## 4. Current Repository State
+## 8. Task 7: Chatbot FAQ Grounding & Escalation
 
-* All changes reside in the local working directory.
-* No commits or pushes have been made in accordance with the project directives.
-* The backend is fully compiling, all test suites pass with zero errors, and the system is aligned with the SE2030 proposal specification.
+### Implementation Details
+* **Grounding Engine:**
+  * [`GeminiAiService.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/main/java/com/university/helpdesk/service/GeminiAiService.java):
+    * Prioritizes exact and token-based knowledge base matching.
+    * If no relevant article is found and the query is not a greeting, the chatbot avoids hallucinating university policy or procedures.
+    * Returns response payload with `needsEscalation: true`, `resolved: false`, `canDeflect: true`, and `matchedArticleId: null`.
+    * When matching KB articles exist, returns `needsEscalation: false`, `resolved: true`, and the matched article ID/title.
+* **Escalation Interface:**
+  * [`AiChatbotModal.jsx`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/FrontEnd/src/components/AiChatbotModal.jsx):
+    * Inspects `needsEscalation` flag from backend reply.
+    * Displays prominent "Formal Support Ticket Required" banner with a direct "Create Support Ticket" button pre-populating title and description from the chat context.
+
+---
+
+## 9. Security & Access Control Posture
+
+1. **IDOR Remediation:**
+   * All user notification operations derive user identity directly from Spring Security's authenticated principal (`Authentication.getName()`), preventing cross-user notification reading or deletion.
+2. **CORS Hardening:**
+   * Configurable allowed origins via `app.cors.allowed-origin` / `FRONTEND_ORIGIN` replacing wildcard definitions.
+3. **Reset Token Privacy:**
+   * Raw reset tokens are sent exclusively via email to the verified address; only SHA-256 digests are stored in the database.
+4. **Session Invalidation:**
+   * Password reset increments `user.tokenVersion`, causing all previously issued JWT tokens to be rejected on subsequent requests.
+5. **Staff Scoping Integrity:**
+   * Ticket assignment history, status changes, and resolution workflows continue to enforce strict department-level isolation for Support Agents and Team Leads.
+
+---
+
+## 10. Test Verification Results (Full Suite Breakdown)
+
+### Backend Test Results (Maven 3 / JUnit 5)
+Execution command: `mvn test`  
+Result: **68 tests run, 0 failures, 0 errors, 0 skipped** (BUILD SUCCESS in ~52s)
+
+| Test Suite Class | Tests Run | Result | Key Scenarios Verified |
+| :--- | :---: | :---: | :--- |
+| [`ChatbotGroundingTest`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/test/java/com/university/helpdesk/ChatbotGroundingTest.java) | 3 | **PASS** | KB match resolution, unknown policy escalation, greeting deflection |
+| [`SelfServicePasswordResetTest`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/test/java/com/university/helpdesk/SelfServicePasswordResetTest.java) | 2 | **PASS** | Full self-service reset flow with email link, token hash verification, tokenVersion bump, account enumeration protection |
+| [`AnalyticsSlaTest`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/test/java/com/university/helpdesk/AnalyticsSlaTest.java) | 6 | **PASS** | SLA engine calculations, configurable thresholds, terminal state exclusions, zero-division safety, role authorization |
+| [`SupportAgentResolutionSecurityTest`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/test/java/com/university/helpdesk/SupportAgentResolutionSecurityTest.java) | 6 | **PASS** | Resolution authorization, mandatory resolution notes, cross-department protection |
+| [`TicketCancellationSecurityTest`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/test/java/com/university/helpdesk/TicketCancellationSecurityTest.java) | 8 | **PASS** | Creator soft-cancellation, admin rejection, access boundaries |
+| [`TicketWorkflowSecurityTest`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/test/java/com/university/helpdesk/TicketWorkflowSecurityTest.java) | 8 | **PASS** | Ticket lifecycle state transitions (OPEN -> IN_PROGRESS -> RESOLVED -> CLOSED) |
+| [`RoleAccessAndAttachmentSecurityTest`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/test/java/com/university/helpdesk/RoleAccessAndAttachmentSecurityTest.java) | 25 | **PASS** | 7-role access matrices, object-level attachment download & deletion permissions |
+| [`Module1SecurityTest`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/test/java/com/university/helpdesk/Module1SecurityTest.java) | 9 | **PASS** | Admin-assisted fallback reset, user registration constraints, password policies |
+| [`CleanStartupDataTest`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/test/java/com/university/helpdesk/CleanStartupDataTest.java) | 1 | **PASS** | Clean database initialization without pre-seeded test fixtures |
+
+### Frontend Build & Lint Results
+* **Linting (`cmd /c npm run lint`):** **0 errors** (all source files pass oxlint checks).
+* **Production Build (`cmd /c npm run build`):** **PASS** (Vite v8.2.1 production bundle built in 1.05s, 0 errors).
+* **Git Hygiene (`git diff --check`):** **PASS** (Clean exit, 0 trailing whitespaces or conflict markers).
+
+---
+
+## 11. Proposal Specification Alignment & Remaining Module Boundaries
+
+### Alignment with SE2030 Proposal Baseline (Group KU-09)
+* **Unified Role-Adaptive Architecture:** Maintained the single `Dashboard.jsx` presenting tailored capabilities across all 7 roles (`STUDENT`, `LECTURER`, `SUPPORT_AGENT`, `TEAM_LEAD`, `KNOWLEDGE_MANAGER`, `MANAGER_EXECUTIVE`, `SYSTEM_ADMINISTRATOR`).
+* **Direct Requester Dispatch:** Students and lecturers submit tickets tagged with target department (`IT`, `MAINTENANCE`, `SECURITY`) entering the queue directly in `OPEN` status.
+* **Team Lead Coordination & Agent Resolution:** Team Leads assign/reassign tickets; Support Agents claim and resolve with mandatory notes.
+* **Auditable Operations:** Full assignment history and SLA tracking provide visibility for university operations.
+
+### Remaining Module Boundaries (Reserved for Next Phase)
+In strict accordance with project directives, the following modules were **not** started in this iteration and remain deferred:
+1. **Agent Activity Logs:** Detailed audit trail of granular support agent actions beyond ticket assignments (e.g., viewing records, draft notes).
+2. **Manager Analytics Comments / Insights:** Collaborative comment thread and executive notation on dashboard analytics reports.
+
+---
+*Report generated and verified against the local UniAssist 360 workspace.*

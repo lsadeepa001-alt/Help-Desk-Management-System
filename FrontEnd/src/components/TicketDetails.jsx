@@ -99,6 +99,7 @@ export default function TicketDetails({ ticketId, onBack }) {
   const [editFormData, setEditFormData] = useState({ title: '', description: '', priority: 'MEDIUM', location: '', categoryId: '1' });
   const [showReopenModal, setShowReopenModal] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
 
   // Show CSAT to ticket submitter (non-agent users) when ticket is resolved
   const canRateCsat = isAuthenticated && isTicketCreator && !csatSubmitted && !myFeedback;
@@ -149,6 +150,15 @@ export default function TicketDetails({ ticketId, onBack }) {
     }
   }, [ticketId]);
 
+  const fetchAssignmentHistory = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/tickets/${ticketId}/assignment-history`);
+      setAssignmentHistory(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      // silently fail
+    }
+  }, [ticketId]);
+
   const fetchAgents = useCallback(async () => {
     if (!isTeamLead && !isAdmin) return;
     try {
@@ -161,8 +171,8 @@ export default function TicketDetails({ ticketId, onBack }) {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchTicket(), fetchComments(), fetchFeedback(), fetchAttachments(), fetchAgents()]).finally(() => setLoading(false));
-  }, [fetchTicket, fetchComments, fetchFeedback, fetchAttachments, fetchAgents]);
+    Promise.all([fetchTicket(), fetchComments(), fetchFeedback(), fetchAttachments(), fetchAssignmentHistory(), fetchAgents()]).finally(() => setLoading(false));
+  }, [fetchTicket, fetchComments, fetchFeedback, fetchAttachments, fetchAssignmentHistory, fetchAgents]);
 
   const handleUploadAttachments = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -217,6 +227,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       const res = await axios.put(`${API}/tickets/${ticketId}/claim`);
       setTicket(res.data);
       setStatusMsg('✅ Ticket claimed! You are now working on this ticket.');
+      fetchAssignmentHistory();
     } catch (err) {
       setStatusMsg('Failed to claim ticket: ' + getApiErrorMessage(err));
     }
@@ -228,6 +239,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       setTicket(res.data);
       setStatusMsg('Ticket assigned successfully.');
       setSelectedReassignAgentId('');
+      fetchAssignmentHistory();
     } catch (err) {
       setStatusMsg('Failed to assign ticket: ' + getApiErrorMessage(err));
     }
@@ -323,6 +335,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       const res = await axios.put(`${API}/tickets/${ticketId}/route`, { department: selectedRouteDepartment });
       setTicket(res.data);
       setStatusMsg(`Ticket routed to ${res.data.department}.`);
+      fetchAssignmentHistory();
     } catch (err) {
       setStatusMsg('Failed to route ticket: ' + getApiErrorMessage(err));
     }
@@ -763,6 +776,70 @@ export default function TicketDetails({ ticketId, onBack }) {
           </div>
         )}
       </div>
+
+      {/* ── Assignment & Ownership History Timeline ── */}
+      {assignmentHistory.length > 0 && (
+        <div className="bg-slate-800/90 border border-slate-700/70 rounded-2xl p-6 shadow-xl backdrop-blur-md space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              📜 Assignment &amp; Ownership History
+              <span className="text-xs font-normal bg-slate-700/60 text-slate-400 px-2 py-0.5 rounded-full ml-1">
+                {assignmentHistory.length} {assignmentHistory.length === 1 ? 'event' : 'events'}
+              </span>
+            </h2>
+          </div>
+
+          <div className="relative border-l-2 border-slate-700 ml-4 pl-6 space-y-5">
+            {assignmentHistory.map((item) => {
+              const actionColors = {
+                CLAIMED: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40',
+                ASSIGNED: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40',
+                REASSIGNED: 'bg-amber-500/20 text-amber-400 border-amber-500/40',
+                ROUTED: 'bg-purple-500/20 text-purple-400 border-purple-500/40',
+              };
+              const actionIcons = {
+                CLAIMED: '✋',
+                ASSIGNED: '👉',
+                REASSIGNED: '🔄',
+                ROUTED: '🔀',
+              };
+              return (
+                <div key={item.id} className="relative group">
+                  <div className="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-slate-900 border-2 border-indigo-500 group-hover:scale-125 transition" />
+                  <div className="bg-slate-900/60 border border-slate-700/50 rounded-xl p-3.5 space-y-1.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${actionColors[item.action] || 'bg-slate-700 text-slate-300 border-slate-600'}`}>
+                        {actionIcons[item.action] || '•'} {item.action}
+                      </span>
+                      <span className="text-[11px] text-slate-500">{fmt(item.changedAt)}</span>
+                    </div>
+
+                    <div className="text-xs text-slate-200">
+                      {item.action === 'CLAIMED' && (
+                        <span>Claimed by <strong className="text-white">{item.newAgentName}</strong></span>
+                      )}
+                      {item.action === 'ASSIGNED' && (
+                        <span>Assigned to <strong className="text-white">{item.newAgentName}</strong></span>
+                      )}
+                      {item.action === 'REASSIGNED' && (
+                        <span>Reassigned from <strong className="text-slate-300">{item.previousAgentName || 'Unassigned'}</strong> to <strong className="text-white">{item.newAgentName}</strong></span>
+                      )}
+                      {item.action === 'ROUTED' && (
+                        <span>Department routed from <strong className="text-slate-300">{item.previousDepartment}</strong> to <strong className="text-white">{item.newDepartment}</strong></span>
+                      )}
+                    </div>
+
+                    <div className="text-[10px] text-slate-400">
+                      Action performed by <span className="font-semibold text-slate-300">{item.changedByName}</span>
+                      {item.changedByRole && <span className="ml-1 text-slate-500">({item.changedByRole.replace('_', ' ')})</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Resolution Verification Banner (For ticket creator when ticket is RESOLVED) ── */}
       {isTicketCreator && ticket.status === 'RESOLVED' && (

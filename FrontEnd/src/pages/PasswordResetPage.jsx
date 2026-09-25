@@ -14,6 +14,13 @@ export default function PasswordResetPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
 
+  useEffect(() => {
+    const urlToken = searchParams.get('token');
+    if (urlToken) {
+      setToken(urlToken);
+    }
+  }, [searchParams]);
+
   const requestReset = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -73,7 +80,7 @@ export default function PasswordResetPage() {
             <div>
               <h2 className="font-bold text-white">1. Request a reset</h2>
               <p className="text-xs text-slate-400 mt-1">
-                Until university email delivery is connected, a System Administrator securely provides the one-time token.
+                Enter your registered university email. A secure, one-time password reset link will be sent to your inbox.
               </p>
             </div>
             <input
@@ -88,13 +95,24 @@ export default function PasswordResetPage() {
             <button disabled={loading} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition">
               {loading ? 'Processing...' : 'Request Reset Token'}
             </button>
-            {requestSent && <p className="text-xs text-amber-300">Contact the System Administrator to receive the pending one-time token.</p>}
+            {requestSent && (
+              <p className="text-xs text-emerald-400">
+                If your account is registered, a password reset link has been dispatched to your email. Check your inbox to continue.
+              </p>
+            )}
           </form>
 
           <div className="border-t border-slate-700/60" />
 
           <form onSubmit={confirmReset} className="space-y-4">
-            <h2 className="font-bold text-white">2. Set a new password</h2>
+            <div>
+              <h2 className="font-bold text-white">2. Set a new password</h2>
+              {searchParams.get('token') && (
+                <div className="mt-2 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs flex items-center gap-2">
+                  <span>✨</span> Reset token loaded from your verification link. Enter your new password below.
+                </div>
+              )}
+            </div>
             <input
               type="text"
               value={token}

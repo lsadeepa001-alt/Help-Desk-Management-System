@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -26,31 +26,40 @@ const statusColors = {
 export default function AnalyticsDashboard() {
   const [summary, setSummary] = useState(null);
   const [agentPerformance, setAgentPerformance] = useState([]);
+  const [slaCompliance, setSlaCompliance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const { showToast } = useToast();
   const { user } = useAuth();
   const canExportCsv = user?.role === 'MANAGER_EXECUTIVE' || user?.role === 'SYSTEM_ADMINISTRATOR';
+  const canViewSla = user?.role === 'MANAGER_EXECUTIVE' || user?.role === 'SYSTEM_ADMINISTRATOR';
 
-  useEffect(() => {
-    fetchAnalyticsData();
-  }, []);
-
-  const fetchAnalyticsData = async () => {
+  const fetchAnalyticsData = useCallback(async () => {
     setLoading(true);
     try {
-      const [sumRes, agentRes] = await Promise.all([
+      const requests = [
         axios.get(`${API}/analytics/summary`),
         axios.get(`${API}/analytics/agent-performance`),
-      ]);
-      setSummary(sumRes.data);
-      setAgentPerformance(agentRes.data);
+      ];
+      if (canViewSla) {
+        requests.push(axios.get(`${API}/analytics/sla-compliance`));
+      }
+      const results = await Promise.all(requests);
+      setSummary(results[0].data);
+      setAgentPerformance(results[1].data);
+      if (canViewSla && results[2]) {
+        setSlaCompliance(results[2].data);
+      }
     } catch {
       showToast('Failed to load analytics data.', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [canViewSla, showToast]);
+
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, [fetchAnalyticsData]);
 
   const handleExportCsv = async () => {
     setExporting(true);
@@ -267,6 +276,120 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── SLA Compliance Section (Managers & System Administrators) ── */}
+      {canViewSla && slaCompliance && (
+        <div className="space-y-6">
+          <div className="bg-slate-800/80 border border-slate-700/60 p-6 rounded-2xl shadow-xl space-y-5 print:border-gray-300 print:bg-gray-50">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700/60 pb-4">
+              <div>
+                <h3 className="font-bold text-base text-white flex items-center gap-2 print:text-black">
+                  <span>⏱️</span> Service Level Agreement (SLA) Compliance
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Resolution timeline compliance measured against configured priority thresholds.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <span className="text-xs text-slate-400 font-semibold">Overall SLA:</span>
+                <span className={`px-3 py-1 rounded-full text-xs font-black ${
+                  slaCompliance.compliancePercentage >= 90
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : slaCompliance.compliancePercentage >= 75
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                    : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                }`}>
+                  {slaCompliance.compliancePercentage}%
+                </span>
+              </div>
+            </div>
+
+            {/* SLA KPI Mini-Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-slate-900/60 border border-slate-700/50 p-4 rounded-xl space-y-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Measured</span>
+                <div className="text-2xl font-black text-white">{slaCompliance.totalMeasuredTickets}</div>
+                <p className="text-[10px] text-slate-500">Active and resolved tickets (excluding cancelled)</p>
+              </div>
+              <div className="bg-slate-900/60 border border-slate-700/50 p-4 rounded-xl space-y-1">
+                <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Within SLA Target</span>
+                <div className="text-2xl font-black text-emerald-400">{slaCompliance.slaMetCount}</div>
+                <p className="text-[10px] text-slate-500">Resolved on time or within active target window</p>
+              </div>
+              <div className="bg-slate-900/60 border border-slate-700/50 p-4 rounded-xl space-y-1">
+                <span className="text-[10px] uppercase font-bold text-rose-400 tracking-wider">SLA Breached</span>
+                <div className="text-2xl font-black text-rose-400">{slaCompliance.slaBreachedCount}</div>
+                <p className="text-[10px] text-slate-500">Resolution elapsed time exceeded threshold</p>
+              </div>
+            </div>
+
+            {/* Per-Priority SLA Breakdown Table */}
+            {slaCompliance.perPriority && (
+              <div className="overflow-x-auto pt-2">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-900/80 text-slate-400 border-b border-slate-700/60 uppercase tracking-wider text-[10px]">
+                      <th className="py-2.5 px-3 font-bold">Priority</th>
+                      <th className="py-2.5 px-3 font-bold text-center">Configured Threshold</th>
+                      <th className="py-2.5 px-3 font-bold text-center">Measured Tickets</th>
+                      <th className="py-2.5 px-3 font-bold text-center">SLA Met</th>
+                      <th className="py-2.5 px-3 font-bold text-center">SLA Breached</th>
+                      <th className="py-2.5 px-3 font-bold text-center">Compliance</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700/40 text-slate-200">
+                    {Object.entries(slaCompliance.perPriority).map(([prio, data]) => {
+                      const prioBadge = {
+                        CRITICAL: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+                        URGENT: 'bg-red-500/20 text-red-300 border-red-500/40',
+                        HIGH: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+                        MEDIUM: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
+                        LOW: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+                      };
+                      return (
+                        <tr key={prio} className="hover:bg-slate-700/20 transition">
+                          <td className="py-2.5 px-3 font-bold">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] border ${prioBadge[prio] || 'bg-slate-700 text-slate-300'}`}>
+                              {prio}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-center text-slate-300 font-mono">
+                            {data.thresholdHours} hrs
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-bold">{data.total}</td>
+                          <td className="py-2.5 px-3 text-center font-bold text-emerald-400">{data.met}</td>
+                          <td className="py-2.5 px-3 text-center font-bold text-rose-400">{data.breached}</td>
+                          <td className="py-2.5 px-3 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="font-extrabold text-[11px]">
+                                {data.total > 0 ? `${data.compliancePercentage}%` : '—'}
+                              </span>
+                              {data.total > 0 && (
+                                <div className="w-16 bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                                  <div
+                                    className={`h-1.5 rounded-full ${
+                                      data.compliancePercentage >= 90
+                                        ? 'bg-emerald-500'
+                                        : data.compliancePercentage >= 75
+                                        ? 'bg-amber-500'
+                                        : 'bg-rose-500'
+                                    }`}
+                                    style={{ width: `${data.compliancePercentage}%` }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Support Agent Leaderboard Table ── */}
       <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl shadow-xl overflow-hidden print:border-gray-300">

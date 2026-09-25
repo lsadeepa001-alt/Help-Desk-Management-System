@@ -82,6 +82,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/kb/articles/**").permitAll()
                 .requestMatchers("/kb/chatbot/ask").permitAll()
                 .requestMatchers("/kb/chatbot/ticket-status/**").authenticated()
+                .requestMatchers(HttpMethod.GET, "/tickets/categories").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .anyRequest().authenticated()
             );

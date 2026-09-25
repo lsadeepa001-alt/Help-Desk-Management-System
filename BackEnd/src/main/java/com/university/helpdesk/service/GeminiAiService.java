@@ -37,35 +37,61 @@ public class GeminiAiService {
 
         if (userMessage == null || userMessage.trim().isEmpty()) {
             response.put("reply", "Hello! I am UniAssist 360. How can I help you today with university IT or campus services?");
-            response.put("matchedArticleId", null);
+            response.put("needsEscalation", false);
+            response.put("resolved", false);
+            response.put("canDeflect", false);
+            return response;
+        }
+
+        String trimmed = userMessage.trim();
+
+        // Check if greeting
+        if (isGreeting(trimmed)) {
+            response.put("reply", "Hello! I am UniAssist 360, your University Help Desk Assistant. You can ask me about campus Wi-Fi, LMS passwords, software licenses, lab PCs, library access, or hostel maintenance!");
+            response.put("needsEscalation", false);
+            response.put("resolved", false);
             response.put("canDeflect", false);
             return response;
         }
 
         // Search KB using exact match or smart keyword token matching
-        List<KnowledgeBaseArticle> matchingArticles = findMatchingArticles(userMessage.trim());
+        List<KnowledgeBaseArticle> matchingArticles = findMatchingArticles(trimmed);
         KnowledgeBaseArticle bestMatch = matchingArticles.isEmpty() ? null : matchingArticles.get(0);
+
+        // Grounding rule: if no KB article found, do not hallucinate university policy.
+        if (bestMatch == null) {
+            response.put("reply", "I couldn't find a solution in the University Knowledge Base or FAQ for your query: '" + trimmed + "'. For personalized assistance, please submit a formal support ticket to our department support teams.");
+            response.put("needsEscalation", true);
+            response.put("resolved", false);
+            response.put("canDeflect", true);
+            return response;
+        }
 
         String replyText = null;
 
         // Try calling Google Gemini API if key is present
         if (apiKey != null && !apiKey.trim().isEmpty()) {
-            replyText = tryGeminiApi(userMessage, history, matchingArticles);
+            replyText = tryGeminiApi(trimmed, history, matchingArticles);
         }
 
         // If Gemini API wasn't configured or failed, use smart local KB engine
         if (replyText == null || replyText.trim().isEmpty()) {
-            replyText = generateFallbackResponse(userMessage, bestMatch);
+            replyText = generateFallbackResponse(trimmed, bestMatch);
         }
 
-        boolean canDeflect = bestMatch != null || userMessage.toLowerCase().contains("ticket") || userMessage.toLowerCase().contains("help");
-
         response.put("reply", replyText);
-        response.put("matchedArticleId", bestMatch != null ? bestMatch.getId() : null);
-        response.put("matchedArticleTitle", bestMatch != null ? bestMatch.getTitle() : null);
-        response.put("canDeflect", canDeflect);
+        response.put("matchedArticleId", bestMatch.getId());
+        response.put("matchedArticleTitle", bestMatch.getTitle());
+        response.put("needsEscalation", false);
+        response.put("resolved", true);
+        response.put("canDeflect", true);
 
         return response;
+    }
+
+    private boolean isGreeting(String msg) {
+        String lower = msg.toLowerCase().trim();
+        return lower.matches("^(hi|hello|hey|good morning|good afternoon|good evening|greetings)[!.]?$");
     }
 
     private List<KnowledgeBaseArticle> findMatchingArticles(String query) {
