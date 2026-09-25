@@ -23,19 +23,22 @@ public class TicketDeletionService {
     private final FeedbackRepository feedbackRepository;
     private final NotificationRepository notificationRepository;
     private final AttachmentService attachmentService;
+    private final com.university.helpdesk.repository.TicketAssignmentHistoryRepository assignmentHistoryRepository;
 
     public TicketDeletionService(TicketRepository ticketRepository,
                                  TicketAttachmentRepository attachmentRepository,
                                  TicketCommentRepository commentRepository,
                                  FeedbackRepository feedbackRepository,
                                  NotificationRepository notificationRepository,
-                                 AttachmentService attachmentService) {
+                                 AttachmentService attachmentService,
+                                 com.university.helpdesk.repository.TicketAssignmentHistoryRepository assignmentHistoryRepository) {
         this.ticketRepository = ticketRepository;
         this.attachmentRepository = attachmentRepository;
         this.commentRepository = commentRepository;
         this.feedbackRepository = feedbackRepository;
         this.notificationRepository = notificationRepository;
         this.attachmentService = attachmentService;
+        this.assignmentHistoryRepository = assignmentHistoryRepository;
     }
 
     @Transactional
@@ -43,6 +46,7 @@ public class TicketDeletionService {
         Long ticketId = ticket.getId();
         List<TicketAttachment> attachments = attachmentRepository.findByTicketIdOrderByUploadedAtAsc(ticketId);
 
+        assignmentHistoryRepository.deleteByTicketId(ticketId);
         feedbackRepository.deleteByTicketId(ticketId);
         commentRepository.deleteByTicketId(ticketId);
         attachmentRepository.deleteByTicketId(ticketId);

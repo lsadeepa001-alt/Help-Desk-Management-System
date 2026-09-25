@@ -1,7 +1,9 @@
 package com.university.helpdesk.controller;
 
 import com.university.helpdesk.model.*;
+import com.university.helpdesk.dto.AssignmentHistoryDTO;
 import com.university.helpdesk.repository.CategoryRepository;
+import com.university.helpdesk.repository.TicketAssignmentHistoryRepository;
 import com.university.helpdesk.repository.TicketCommentRepository;
 import com.university.helpdesk.repository.TicketRepository;
 import com.university.helpdesk.repository.UserRepository;
@@ -15,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
@@ -23,7 +26,6 @@ import java.util.Set;
 
 @RestController
 @RequestMapping("/tickets")
-@CrossOrigin(origins = "*")
 public class TicketController {
 
     private final TicketRepository ticketRepository;
@@ -33,6 +35,7 @@ public class TicketController {
     private final NotificationService notificationService;
     private final TicketDeletionService ticketDeletionService;
     private final TicketService ticketService;
+    private final TicketAssignmentHistoryRepository assignmentHistoryRepository;
 
     private static final Set<String> TECHNICAL_DEPARTMENTS = Set.of("IT", "MAINTENANCE", "SECURITY");
 
@@ -42,7 +45,8 @@ public class TicketController {
                             TicketCommentRepository commentRepository,
                             NotificationService notificationService,
                             TicketDeletionService ticketDeletionService,
-                            TicketService ticketService) {
+                            TicketService ticketService,
+                            TicketAssignmentHistoryRepository assignmentHistoryRepository) {
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
@@ -50,7 +54,9 @@ public class TicketController {
         this.notificationService = notificationService;
         this.ticketDeletionService = ticketDeletionService;
         this.ticketService = ticketService;
+        this.assignmentHistoryRepository = assignmentHistoryRepository;
     }
+
 
     private boolean isStaffUser(Authentication auth) {
         if (auth == null) return false;
@@ -101,31 +107,75 @@ public class TicketController {
     // ─── GET ALL (Restricted to Staff, Team Leads, Admins) ───────────────────
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
-    public List<Ticket> getAllTickets(Authentication auth) {
+    public List<Ticket> getAllTickets(
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo,
+            Authentication auth) {
         User currentUser = getCurrentUser(auth);
+
+        java.time.LocalDateTime from = dateFrom != null && !dateFrom.isBlank()
+                ? LocalDate.parse(dateFrom).atStartOfDay() : null;
+        java.time.LocalDateTime to = dateTo != null && !dateTo.isBlank()
+                ? LocalDate.parse(dateTo).atTime(23, 59, 59) : null;
+
+        var stream = ticketRepository.findAll().stream();
+
         if (hasRole(auth, "SYSTEM_ADMINISTRATOR")) {
-            return ticketRepository.findAll();
+            // Admin sees all tickets
+        } else {
+            stream = stream
+                    .filter(ticket -> ticket.getStatus() != Status.CANCELLED && ticket.getStatus() != Status.REJECTED)
+                    .filter(ticket -> sameDepartment(ticket.getDepartment(), currentUser.getDepartment()))
+                    .filter(ticket -> hasRole(auth, "TEAM_LEAD") ||
+                            (ticket.getAssignedTo() != null && ticket.getAssignedTo().getId().equals(currentUser.getId())) ||
+                            ticket.getAssignedTo() == null);
         }
 
-        return ticketRepository.findAll().stream()
-                .filter(ticket -> ticket.getStatus() != Status.CANCELLED && ticket.getStatus() != Status.REJECTED)
-                .filter(ticket -> sameDepartment(ticket.getDepartment(), currentUser.getDepartment()))
-                .filter(ticket -> hasRole(auth, "TEAM_LEAD") ||
-                        (ticket.getAssignedTo() != null && ticket.getAssignedTo().getId().equals(currentUser.getId())) ||
-                        ticket.getAssignedTo() == null)
-                .toList();
+        // Apply optional filters (do NOT bypass role-based visibility)
+        if (categoryId != null) {
+            stream = stream.filter(t -> t.getCategory() != null && categoryId.equals(t.getCategory().getId()));
+        }
+        if (from != null) {
+            stream = stream.filter(t -> t.getCreatedAt() != null && !t.getCreatedAt().isBefore(from));
+        }
+        if (to != null) {
+            stream = stream.filter(t -> t.getCreatedAt() != null && !t.getCreatedAt().isAfter(to));
+        }
+
+        return stream.toList();
     }
 
     // ─── GET MY TICKETS (All authenticated users for their own tickets) ──────
     @GetMapping("/my-tickets")
     @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'KNOWLEDGE_MANAGER', 'MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<List<Ticket>> getMyTickets(Authentication auth) {
+    public ResponseEntity<List<Ticket>> getMyTickets(
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo,
+            Authentication auth) {
         if (auth == null || !auth.isAuthenticated()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
         }
         User user = userRepository.findByUsername(auth.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        return ResponseEntity.ok(ticketRepository.findByCreatedById(user.getId()));
+
+        java.time.LocalDateTime from = dateFrom != null && !dateFrom.isBlank()
+                ? LocalDate.parse(dateFrom).atStartOfDay() : null;
+        java.time.LocalDateTime to = dateTo != null && !dateTo.isBlank()
+                ? LocalDate.parse(dateTo).atTime(23, 59, 59) : null;
+
+        var stream = ticketRepository.findByCreatedById(user.getId()).stream();
+        if (categoryId != null) {
+            stream = stream.filter(t -> t.getCategory() != null && categoryId.equals(t.getCategory().getId()));
+        }
+        if (from != null) {
+            stream = stream.filter(t -> t.getCreatedAt() != null && !t.getCreatedAt().isBefore(from));
+        }
+        if (to != null) {
+            stream = stream.filter(t -> t.getCreatedAt() != null && !t.getCreatedAt().isAfter(to));
+        }
+        return ResponseEntity.ok(stream.toList());
     }
 
     // ─── GET BY ID (Enforces Ownership for End-Users and Department for Staff) ─
@@ -271,18 +321,62 @@ public class TicketController {
     @PutMapping("/{id}/route")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR', 'TEAM_LEAD')")
     public ResponseEntity<Ticket> routeTicket(@PathVariable Long id,
-                                               @RequestBody Map<String, String> body) {
+                                               @RequestBody Map<String, String> body,
+                                               Authentication auth) {
         Ticket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
+
+        User currentUser = getCurrentUser(auth);
+        boolean isAdmin = hasRole(auth, "SYSTEM_ADMINISTRATOR");
 
         if (ticket.getStatus() == Status.CANCELLED || ticket.getStatus() == Status.REJECTED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Terminal tickets cannot be routed");
         }
 
-        ticket.setDepartment(normalizeTechnicalDepartment(body.get("department")));
-        ticket.setAssignedTo(null);
-        return ResponseEntity.ok(ticketRepository.save(ticket));
+        // Team Lead can only reroute tickets in their own department
+        if (!isAdmin) {
+            if (ticket.getDepartment() == null || !sameDepartment(ticket.getDepartment(), currentUser.getDepartment())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Team Leads can only reroute tickets in their own department");
+            }
+        }
+
+        String previousDepartment = ticket.getDepartment();
+        User previousAgent = ticket.getAssignedTo();
+        boolean wasRerouted = previousDepartment != null;
+
+        String newDepartment = normalizeTechnicalDepartment(body.get("department"));
+        ticket.setDepartment(newDepartment);
+
+        // If rerouting removes assigned agent (department changes), do NOT leave IN_PROGRESS with no agent
+        if (!sameDepartment(previousDepartment, newDepartment) && ticket.getAssignedTo() != null) {
+            ticket.setAssignedTo(null);
+            if (ticket.getStatus() == Status.IN_PROGRESS) {
+                ticket.setStatus(Status.OPEN);
+            }
+        } else if (!sameDepartment(previousDepartment, newDepartment)) {
+            ticket.setAssignedTo(null);
+        }
+
+        Ticket saved = ticketRepository.save(ticket);
+
+        // Record routing history
+        try {
+            TicketAssignmentHistory history = new TicketAssignmentHistory();
+            history.setTicket(saved);
+            history.setAction(wasRerouted && !sameDepartment(previousDepartment, newDepartment) ? AssignmentAction.REROUTED : AssignmentAction.ROUTED);
+            history.setPreviousDepartment(previousDepartment);
+            history.setNewDepartment(newDepartment);
+            history.setPreviousAgent(previousAgent);
+            history.setNewAgent(saved.getAssignedTo());
+            history.setChangedBy(currentUser);
+            assignmentHistoryRepository.save(history);
+        } catch (Exception e) {
+            System.err.println("Assignment history recording failed: " + e.getMessage());
+        }
+
+        return ResponseEntity.ok(saved);
     }
 
     // ─── CONFIRM RESOLUTION (Ticket Creator confirms resolution -> CLOSED) ───
@@ -428,5 +522,33 @@ public class TicketController {
                 : commentRepository.findByTicketIdAndIsInternalFalseOrderByCreatedAtAsc(id);
 
         return ResponseEntity.ok(comments);
+    }
+
+    // ─── GET ASSIGNMENT HISTORY (Same access rules as ticket read) ────────────
+    @GetMapping("/{id}/assignment-history")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<List<AssignmentHistoryDTO>> getAssignmentHistory(@PathVariable Long id,
+                                                                            Authentication auth) {
+        Ticket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
+        User currentUser = getCurrentUser(auth);
+
+        // Apply same access rules as GET /tickets/{id}
+        if (!hasRole(auth, "SYSTEM_ADMINISTRATOR") && !isCreator(ticket, currentUser)) {
+            if (!isStaffUser(auth) ||
+                    ticket.getStatus() == Status.CANCELLED || ticket.getStatus() == Status.REJECTED ||
+                    (ticket.getDepartment() != null && !sameDepartment(ticket.getDepartment(), currentUser.getDepartment()))) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Access denied: You are not authorized to view this ticket's history");
+            }
+        }
+
+        List<AssignmentHistoryDTO> history = assignmentHistoryRepository
+                .findByTicketIdOrderByChangedAtAsc(id)
+                .stream()
+                .map(AssignmentHistoryDTO::from)
+                .toList();
+
+        return ResponseEntity.ok(history);
     }
 }

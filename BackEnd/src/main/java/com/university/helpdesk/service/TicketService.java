@@ -3,6 +3,7 @@ package com.university.helpdesk.service;
 import com.university.helpdesk.dto.TicketRequest;
 import com.university.helpdesk.model.*;
 import com.university.helpdesk.repository.CategoryRepository;
+import com.university.helpdesk.repository.TicketAssignmentHistoryRepository;
 import com.university.helpdesk.repository.TicketCommentRepository;
 import com.university.helpdesk.repository.TicketRepository;
 import com.university.helpdesk.repository.UserRepository;
@@ -26,18 +27,22 @@ public class TicketService {
     private final CategoryRepository categoryRepository;
     private final TicketCommentRepository commentRepository;
     private final NotificationService notificationService;
+    private final TicketAssignmentHistoryRepository assignmentHistoryRepository;
 
     public TicketService(TicketRepository ticketRepository,
                          UserRepository userRepository,
                          CategoryRepository categoryRepository,
                          TicketCommentRepository commentRepository,
-                         NotificationService notificationService) {
+                         NotificationService notificationService,
+                         TicketAssignmentHistoryRepository assignmentHistoryRepository) {
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
         this.commentRepository = commentRepository;
         this.notificationService = notificationService;
+        this.assignmentHistoryRepository = assignmentHistoryRepository;
     }
+
 
     public String normalizeTechnicalDepartment(String value) {
         if (value == null || value.isBlank()) {
@@ -134,6 +139,19 @@ public class TicketService {
         ticket.setStatus(Status.IN_PROGRESS);
         Ticket updated = ticketRepository.save(ticket);
 
+        // Record assignment history
+        try {
+            TicketAssignmentHistory history = new TicketAssignmentHistory();
+            history.setTicket(updated);
+            history.setAction(AssignmentAction.CLAIMED);
+            history.setNewAgent(currentUser);
+            history.setNewDepartment(updated.getDepartment());
+            history.setChangedBy(currentUser);
+            assignmentHistoryRepository.save(history);
+        } catch (Exception e) {
+            System.err.println("Assignment history recording failed: " + e.getMessage());
+        }
+
         try {
             notificationService.notifyTicketAssigned(updated, currentUser);
         } catch (Exception e) {
@@ -162,6 +180,8 @@ public class TicketService {
                     "Staff can only assign tickets in their technical department");
         }
 
+        User previousAgent = ticket.getAssignedTo();
+
         User assignedAgent = null;
         if (agentId == null) {
             ticket.setAssignedTo(null);
@@ -186,6 +206,26 @@ public class TicketService {
         }
 
         Ticket updated = ticketRepository.save(ticket);
+
+        // Record assignment history
+        try {
+            TicketAssignmentHistory history = new TicketAssignmentHistory();
+            history.setTicket(updated);
+            history.setPreviousAgent(previousAgent);
+            history.setNewAgent(assignedAgent);
+            history.setNewDepartment(updated.getDepartment());
+            history.setChangedBy(currentUser);
+            if (assignedAgent == null) {
+                history.setAction(AssignmentAction.UNASSIGNED);
+            } else if (previousAgent != null && !previousAgent.getId().equals(assignedAgent.getId())) {
+                history.setAction(AssignmentAction.REASSIGNED);
+            } else {
+                history.setAction(AssignmentAction.ASSIGNED);
+            }
+            assignmentHistoryRepository.save(history);
+        } catch (Exception e) {
+            System.err.println("Assignment history recording failed: " + e.getMessage());
+        }
 
         if (assignedAgent != null) {
             try {

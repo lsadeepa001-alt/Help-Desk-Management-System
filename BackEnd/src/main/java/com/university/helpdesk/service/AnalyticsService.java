@@ -4,9 +4,11 @@ import com.university.helpdesk.model.*;
 import com.university.helpdesk.repository.FeedbackRepository;
 import com.university.helpdesk.repository.TicketRepository;
 import com.university.helpdesk.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -18,6 +20,21 @@ public class AnalyticsService {
     private final FeedbackRepository feedbackRepository;
     private final UserRepository userRepository;
 
+    @Value("${app.sla.threshold.low:72}")
+    private long slaThresholdLow = 72;
+
+    @Value("${app.sla.threshold.medium:48}")
+    private long slaThresholdMedium = 48;
+
+    @Value("${app.sla.threshold.high:24}")
+    private long slaThresholdHigh = 24;
+
+    @Value("${app.sla.threshold.urgent:8}")
+    private long slaThresholdUrgent = 8;
+
+    @Value("${app.sla.threshold.critical:4}")
+    private long slaThresholdCritical = 4;
+
     public AnalyticsService(TicketRepository ticketRepository,
                             FeedbackRepository feedbackRepository,
                             UserRepository userRepository) {
@@ -25,6 +42,24 @@ public class AnalyticsService {
         this.feedbackRepository = feedbackRepository;
         this.userRepository = userRepository;
     }
+
+    public long getThresholdHours(Priority priority) {
+        if (priority == null) return slaThresholdMedium;
+        return switch (priority) {
+            case LOW -> slaThresholdLow;
+            case MEDIUM -> slaThresholdMedium;
+            case HIGH -> slaThresholdHigh;
+            case URGENT -> slaThresholdUrgent;
+            case CRITICAL -> slaThresholdCritical;
+        };
+    }
+
+    public void setSlaThresholdLow(long slaThresholdLow) { this.slaThresholdLow = slaThresholdLow; }
+    public void setSlaThresholdMedium(long slaThresholdMedium) { this.slaThresholdMedium = slaThresholdMedium; }
+    public void setSlaThresholdHigh(long slaThresholdHigh) { this.slaThresholdHigh = slaThresholdHigh; }
+    public void setSlaThresholdUrgent(long slaThresholdUrgent) { this.slaThresholdUrgent = slaThresholdUrgent; }
+    public void setSlaThresholdCritical(long slaThresholdCritical) { this.slaThresholdCritical = slaThresholdCritical; }
+
 
     // ─── SUMMARY METRICS ─────────────────────────────────────────────────────
     public Map<String, Object> getSummary() {
@@ -62,14 +97,15 @@ public class AnalyticsService {
             avgResolutionHours = Math.round((totalMinutes / 60.0 / resolvedList.size()) * 10.0) / 10.0;
         }
 
-        // CSAT average out of 5 & satisfaction percentage
+        // CSAT: avgRating = arithmetic average out of 5; csatScore = % of ratings >= 4
         double avgCsatRating = 0.0;
         double satisfactionRatePercentage = 0.0;
 
         if (!feedbacks.isEmpty()) {
             double totalRating = feedbacks.stream().mapToInt(Feedback::getRating).sum();
             avgCsatRating = Math.round((totalRating / feedbacks.size()) * 10.0) / 10.0;
-            satisfactionRatePercentage = Math.round((avgCsatRating / 5.0) * 100.0);
+            long satisfiedCount = feedbacks.stream().filter(f -> f.getRating() >= 4).count();
+            satisfactionRatePercentage = Math.round(((double) satisfiedCount / feedbacks.size()) * 100.0);
         }
 
         // Category distribution
@@ -155,6 +191,91 @@ public class AnalyticsService {
 
         // Sort by resolved tickets count descending
         result.sort((a, b) -> Long.compare((Long) b.get("resolvedTicketsCount"), (Long) a.get("resolvedTicketsCount")));
+        return result;
+    }
+
+    // ─── SLA COMPLIANCE ──────────────────────────────────────────────────────
+    public Map<String, Object> getSlaCompliance() {
+        List<Ticket> allTickets = ticketRepository.findAll();
+
+        long totalMeasuredTickets = 0;
+        long slaMetCount = 0;
+        long slaBreachedCount = 0;
+
+        Map<Priority, Long> priorityTotals = new EnumMap<>(Priority.class);
+        Map<Priority, Long> priorityMets = new EnumMap<>(Priority.class);
+        Map<Priority, Long> priorityBreached = new EnumMap<>(Priority.class);
+
+        for (Priority p : Priority.values()) {
+            priorityTotals.put(p, 0L);
+            priorityMets.put(p, 0L);
+            priorityBreached.put(p, 0L);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        for (Ticket ticket : allTickets) {
+            Status status = ticket.getStatus();
+            if (status == Status.CANCELLED || status == Status.REJECTED) {
+                continue;
+            }
+
+            Priority priority = ticket.getPriority() != null ? ticket.getPriority() : Priority.MEDIUM;
+            long thresholdHours = getThresholdHours(priority);
+            long thresholdMinutes = thresholdHours * 60;
+
+            LocalDateTime createdAt = ticket.getCreatedAt() != null ? ticket.getCreatedAt() : now;
+
+            boolean isMet;
+            if (status == Status.RESOLVED || status == Status.CLOSED) {
+                LocalDateTime resolvedAt = ticket.getResolvedAt() != null ? ticket.getResolvedAt() :
+                        (ticket.getUpdatedAt() != null ? ticket.getUpdatedAt() : now);
+                long elapsedMinutes = Math.max(0, Duration.between(createdAt, resolvedAt).toMinutes());
+                isMet = elapsedMinutes <= thresholdMinutes;
+            } else {
+                long elapsedMinutes = Math.max(0, Duration.between(createdAt, now).toMinutes());
+                isMet = elapsedMinutes <= thresholdMinutes;
+            }
+
+            totalMeasuredTickets++;
+            priorityTotals.put(priority, priorityTotals.get(priority) + 1);
+
+            if (isMet) {
+                slaMetCount++;
+                priorityMets.put(priority, priorityMets.get(priority) + 1);
+            } else {
+                slaBreachedCount++;
+                priorityBreached.put(priority, priorityBreached.get(priority) + 1);
+            }
+        }
+
+        Map<String, Object> perPriority = new LinkedHashMap<>();
+        for (Priority p : Priority.values()) {
+            long pTotal = priorityTotals.get(p);
+            long pMet = priorityMets.get(p);
+            long pBreached = priorityBreached.get(p);
+            double pCompliance = pTotal == 0 ? 0.0 : Math.round(((double) pMet / pTotal) * 1000.0) / 10.0;
+
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("thresholdHours", getThresholdHours(p));
+            item.put("total", pTotal);
+            item.put("met", pMet);
+            item.put("breached", pBreached);
+            item.put("compliancePercentage", pCompliance);
+
+            perPriority.put(p.name(), item);
+        }
+
+        double compliancePercentage = totalMeasuredTickets == 0 ? 0.0 :
+                Math.round(((double) slaMetCount / totalMeasuredTickets) * 1000.0) / 10.0;
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("totalMeasuredTickets", totalMeasuredTickets);
+        result.put("slaMetCount", slaMetCount);
+        result.put("slaBreachedCount", slaBreachedCount);
+        result.put("compliancePercentage", compliancePercentage);
+        result.put("perPriority", perPriority);
+
         return result;
     }
 

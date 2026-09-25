@@ -12,7 +12,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/analytics")
-@CrossOrigin(origins = "*")
 public class AnalyticsController {
 
     private final AnalyticsService analyticsService;
@@ -33,6 +32,13 @@ public class AnalyticsController {
     @PreAuthorize("hasAnyRole('TEAM_LEAD', 'MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<List<Map<String, Object>>> getAgentPerformance() {
         return ResponseEntity.ok(analyticsService.getAgentPerformance());
+    }
+
+    // ─── GET SLA COMPLIANCE (Managers & Admins) ────────────────────────────────
+    @GetMapping("/sla-compliance")
+    @PreAuthorize("hasAnyRole('MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
+    public ResponseEntity<Map<String, Object>> getSlaCompliance() {
+        return ResponseEntity.ok(analyticsService.getSlaCompliance());
     }
 
     // ─── EXPORT CSV REPORT (Managers & Admins only) ───────────────────────────
