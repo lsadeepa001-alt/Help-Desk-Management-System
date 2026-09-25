@@ -17,11 +17,12 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/users")
-@CrossOrigin(origins = "*")
 public class UserController {
 
     private final UserRepository userRepository;
@@ -115,6 +116,26 @@ public class UserController {
                 .body(passwordResetService.issueCredential(requestId));
     }
 
+    private static final Set<String> TECHNICAL_DEPARTMENTS = Set.of("IT", "MAINTENANCE", "SECURITY");
+
+    private String normalizeTechnicalDepartment(String value) {
+        if (value == null || value.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Department is required for operational staff (SUPPORT_AGENT, TEAM_LEAD). Allowed values: IT, Maintenance, Security");
+        }
+        String normalized = value.trim().toUpperCase(Locale.ROOT);
+        if (!TECHNICAL_DEPARTMENTS.contains(normalized)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid technical department. Allowed values: IT, Maintenance, Security");
+        }
+        return switch (normalized) {
+            case "IT" -> "IT";
+            case "MAINTENANCE" -> "Maintenance";
+            case "SECURITY" -> "Security";
+            default -> throw new IllegalStateException("Unexpected department: " + normalized);
+        };
+    }
+
     // ─── CREATE USER (Administrator only) ─────────────────────────────────────
     @PostMapping
     @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
@@ -128,13 +149,26 @@ public class UserController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already registered");
         }
 
+        Role role = request.getRole();
+        String department = normalizeOptional(request.getDepartment());
+
+        if (role == Role.SUPPORT_AGENT || role == Role.TEAM_LEAD) {
+            if (department == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Department is required for operational staff (SUPPORT_AGENT, TEAM_LEAD). Allowed values: IT, Maintenance, Security");
+            }
+            department = normalizeTechnicalDepartment(department);
+        } else if (role == Role.KNOWLEDGE_MANAGER || role == Role.MANAGER_EXECUTIVE || role == Role.SYSTEM_ADMINISTRATOR) {
+            department = null;
+        }
+
         User user = new User();
         user.setUsername(username);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setEmail(email);
         user.setFullName(request.getFullName().trim());
-        user.setRole(request.getRole());
-        user.setDepartment(normalizeOptional(request.getDepartment()));
+        user.setRole(role);
+        user.setDepartment(department);
         user.setPhoneNumber(normalizeOptional(request.getPhoneNumber()));
         user.setStatus("ACTIVE");
 
@@ -156,6 +190,19 @@ public class UserController {
 
         try {
             Role newRole = Role.valueOf(roleStr.trim().toUpperCase());
+            if (newRole == Role.SUPPORT_AGENT || newRole == Role.TEAM_LEAD) {
+                String dept = body.get("department");
+                if (dept == null || dept.isBlank()) {
+                    dept = user.getDepartment();
+                }
+                if (dept == null || dept.isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Department is required for operational staff (SUPPORT_AGENT, TEAM_LEAD). Allowed values: IT, Maintenance, Security");
+                }
+                user.setDepartment(normalizeTechnicalDepartment(dept));
+            } else if (newRole == Role.KNOWLEDGE_MANAGER || newRole == Role.MANAGER_EXECUTIVE || newRole == Role.SYSTEM_ADMINISTRATOR) {
+                user.setDepartment(null);
+            }
             user.setRole(newRole);
             User updated = userRepository.save(user);
             return ResponseEntity.ok(updated);

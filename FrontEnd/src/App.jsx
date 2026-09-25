@@ -306,11 +306,18 @@ function AdminUsersView() {
   }, [fetchResetRequests, fetchUsers]);
 
   const handleRoleChange = async (userId, newRole) => {
+    const targetUser = users.find(u => u.id === userId);
+    const validDepts = ['it', 'maintenance', 'security'];
+    const isOperational = newRole === 'SUPPORT_AGENT' || newRole === 'TEAM_LEAD';
+    if (isOperational && (!targetUser?.department || !validDepts.includes(targetUser.department.toLowerCase()))) {
+      showToast(`Cannot change role to ${newRole}: User must have a valid technical department (IT, Maintenance, Security).`, 'error');
+      return;
+    }
     setUpdatingId(userId);
     try {
       await axios.put(`${API_BASE}/users/${userId}/role`, { role: newRole });
       showToast('User role updated successfully!', 'success');
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole, department: isOperational ? u.department : (newRole === 'STUDENT' || newRole === 'LECTURER' ? u.department : null) } : u));
     } catch (err) {
       showToast('Failed to update role: ' + (err.response?.data?.message || err.message), 'error');
     } finally {
@@ -659,7 +666,15 @@ function AdminUsersView() {
                   </label>
                   <select
                     value={createFormData.role}
-                    onChange={e => setCreateFormData(prev => ({ ...prev, role: e.target.value }))}
+                    onChange={e => {
+                      const newRole = e.target.value;
+                      const isOperational = newRole === 'SUPPORT_AGENT' || newRole === 'TEAM_LEAD';
+                      setCreateFormData(prev => ({
+                        ...prev,
+                        role: newRole,
+                        department: isOperational ? prev.department : ''
+                      }));
+                    }}
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   >
                     <option value="SUPPORT_AGENT">🛠️ SUPPORT_AGENT</option>
@@ -673,15 +688,20 @@ function AdminUsersView() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Department
+                    Department {(createFormData.role === 'SUPPORT_AGENT' || createFormData.role === 'TEAM_LEAD') && '*'}
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={createFormData.department}
+                    disabled={createFormData.role !== 'SUPPORT_AGENT' && createFormData.role !== 'TEAM_LEAD'}
+                    required={createFormData.role === 'SUPPORT_AGENT' || createFormData.role === 'TEAM_LEAD'}
                     onChange={e => setCreateFormData(prev => ({ ...prev, department: e.target.value }))}
-                    placeholder="e.g. IT Services"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                  />
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="">Select Department</option>
+                    <option value="IT">IT</option>
+                    <option value="Maintenance">Maintenance</option>
+                    <option value="Security">Security</option>
+                  </select>
                 </div>
               </div>
 

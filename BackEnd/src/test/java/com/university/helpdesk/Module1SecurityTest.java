@@ -139,7 +139,7 @@ class Module1SecurityTest {
                                   "email":"%s@university.edu",
                                   "fullName":"New Support Agent",
                                   "role":"SUPPORT_AGENT",
-                                  "department":"IT Help Desk",
+                                  "department":"IT",
                                   "phoneNumber":"+94-77-123-4567",
                                   "status":"SUSPENDED",
                                   "tokenVersion":99

@@ -49,6 +49,9 @@ class SelfServicePasswordResetTest {
     @MockBean
     private JavaMailSender mailSender;
 
+    @Autowired
+    private com.university.helpdesk.service.EmailService emailService;
+
     private User student;
 
     @BeforeEach
@@ -148,5 +151,43 @@ class SelfServicePasswordResetTest {
                 .andExpect(jsonPath("$.resetToken").doesNotExist());
 
         verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @DisplayName("Email disabled: request succeeds with generic response, but leaves no active reset token in DB")
+    void testEmailDisabled_LeavesNoUsableToken() throws Exception {
+        org.springframework.test.util.ReflectionTestUtils.setField(emailService, "emailEnabled", false);
+        try {
+            mockMvc.perform(post("/auth/password-reset/request")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"email\":\"reset.student@university.edu\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").isNotEmpty())
+                    .andExpect(jsonPath("$.resetToken").doesNotExist());
+
+            verify(mailSender, never()).send(any(SimpleMailMessage.class));
+
+            List<PasswordResetToken> activeTokens = tokenRepository.findByUserAndUsedAtIsNull(student);
+            assertTrue(activeTokens.isEmpty(), "No usable active reset token should exist in database when email is disabled");
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(emailService, "emailEnabled", true);
+        }
+    }
+
+    @Test
+    @DisplayName("Mail sender throws exception: request succeeds with generic response, but generated token is invalidated")
+    void testMailSenderException_LeavesNoUsableToken() throws Exception {
+        doThrow(new org.springframework.mail.MailSendException("SMTP server connection timeout"))
+                .when(mailSender).send(any(SimpleMailMessage.class));
+
+        mockMvc.perform(post("/auth/password-reset/request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"reset.student@university.edu\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").isNotEmpty())
+                .andExpect(jsonPath("$.resetToken").doesNotExist());
+
+        List<PasswordResetToken> activeTokens = tokenRepository.findByUserAndUsedAtIsNull(student);
+        assertTrue(activeTokens.isEmpty(), "Active token must be invalidated when SMTP dispatch throws an exception");
     }
 }

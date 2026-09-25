@@ -38,21 +38,22 @@ public class EmailService {
     }
 
     /**
-     * Send a plain-text email. Silently logs and swallows any exception so that
-     * email failures never affect the calling business transaction.
+     * Send a plain-text email. Returns true if sent successfully, false otherwise.
+     * Silently catches and logs any exception so that email failures never affect
+     * the calling business transaction.
      */
-    public void sendEmail(String to, String subject, String body) {
+    public boolean sendEmail(String to, String subject, String body) {
         if (!emailEnabled) {
-            log.debug("Email delivery disabled. Would send to={} subject={}", to, subject);
-            return;
+            log.info("Email delivery disabled (app.email.enabled=false). Skipping email to={}", to);
+            return false;
         }
         if (mailSender == null) {
-            log.warn("Email enabled but JavaMailSender is not configured. Set spring.mail.host. Skipping send for to={}", to);
-            return;
+            log.warn("Email enabled but JavaMailSender is not configured. Set spring.mail.host. Skipping email to={}", to);
+            return false;
         }
         if (to == null || to.isBlank()) {
             log.warn("sendEmail called with blank recipient — skipping");
-            return;
+            return false;
         }
         try {
             SimpleMailMessage message = new SimpleMailMessage();
@@ -62,9 +63,11 @@ public class EmailService {
             message.setText(body);
             mailSender.send(message);
             log.info("Email sent to={} subject={}", to, subject);
+            return true;
         } catch (Exception e) {
-            // Email failure must NOT propagate — just log
+            // Safe diagnostic logging — never logs passwords or secrets
             log.error("Email delivery failed for to={} subject={}: {}", to, subject, e.getMessage());
+            return false;
         }
     }
 }

@@ -20,7 +20,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/feedback")
-@CrossOrigin(origins = "*")
 public class FeedbackController {
 
     private final FeedbackRepository feedbackRepository;
@@ -155,10 +154,41 @@ public class FeedbackController {
     // ─── GET /api/feedback/ticket/{ticketId} ────────────────────────────────
     @GetMapping("/ticket/{ticketId}")
     @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<List<Feedback>> getFeedbackForTicket(@PathVariable Long ticketId) {
-        if (!ticketRepository.existsById(ticketId)) {
-            return ResponseEntity.notFound().build();
+    public ResponseEntity<List<Feedback>> getFeedbackForTicket(@PathVariable Long ticketId, Authentication auth) {
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
+
+        User currentUser = userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
+        boolean isManager = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_MANAGER_EXECUTIVE"));
+        boolean isLead = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_TEAM_LEAD"));
+        boolean isAgent = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPPORT_AGENT"));
+        boolean isEndUser = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_STUDENT") || a.getAuthority().equals("ROLE_LECTURER"));
+
+        if (isAdmin || isManager) {
+            // Authorized for system reporting & oversight
+        } else if (isEndUser) {
+            if (ticket.getCreatedBy() == null || !ticket.getCreatedBy().getId().equals(currentUser.getId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Access denied: You can only view feedback for your own tickets");
+            }
+        } else if (isAgent) {
+            if (ticket.getAssignedTo() == null || !ticket.getAssignedTo().getId().equals(currentUser.getId()) ||
+                    ticket.getDepartment() == null || !ticket.getDepartment().equalsIgnoreCase(currentUser.getDepartment())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Access denied: Support agents can only view feedback for tickets assigned to them in their department");
+            }
+        } else if (isLead) {
+            if (ticket.getDepartment() == null || !ticket.getDepartment().equalsIgnoreCase(currentUser.getDepartment())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Access denied: Team leads can only view feedback for tickets in their department");
+            }
+        } else {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
         }
+
         return ResponseEntity.ok(feedbackRepository.findByTicketId(ticketId));
     }
 
@@ -166,16 +196,28 @@ public class FeedbackController {
     @GetMapping("/agent/{agentId}/summary")
     @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'TEAM_LEAD', 'MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Map<String, Object>> getAgentSummary(@PathVariable Long agentId, Authentication auth) {
-        boolean isSupportAgent = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPPORT_AGENT"));
-        if (isSupportAgent) {
-            User currentUser = userRepository.findByUsername(auth.getName()).orElse(null);
-            if (currentUser == null || !currentUser.getId().equals(agentId)) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Support agents can only view their own performance summary");
-            }
-        }
+        User currentUser = userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
         User agent = userRepository.findById(agentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Agent not found"));
+
+        boolean isSupportAgent = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPPORT_AGENT"));
+        boolean isTeamLead = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_TEAM_LEAD"));
+        boolean isManagerOrAdmin = auth.getAuthorities().stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_MANAGER_EXECUTIVE") || a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
+
+        if (isSupportAgent) {
+            if (!currentUser.getId().equals(agentId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Support agents can only view their own performance summary");
+            }
+        } else if (isTeamLead) {
+            if (agent.getDepartment() == null || !agent.getDepartment().equalsIgnoreCase(currentUser.getDepartment())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Team leads can only view feedback summaries for agents in their department");
+            }
+        } else if (!isManagerOrAdmin) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+        }
 
         List<Feedback> list = feedbackRepository.findByAgentId(agentId);
         return ResponseEntity.ok(buildSummary(agent.getFullName(), agent.getRole().name(),

@@ -455,6 +455,40 @@ public class TicketController {
         return ResponseEntity.ok(ticketService.assignTicket(id, agentId, currentUser, isAdmin));
     }
 
+    private void validateCommentAccess(Ticket ticket, User currentUser, Authentication auth) {
+        if (hasRole(auth, "SYSTEM_ADMINISTRATOR")) {
+            return;
+        }
+
+        if (hasRole(auth, "STUDENT") || hasRole(auth, "LECTURER")) {
+            if (!isCreator(ticket, currentUser)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Access denied: You can only access comments on your own tickets");
+            }
+            return;
+        }
+
+        if (hasRole(auth, "SUPPORT_AGENT")) {
+            if (ticket.getAssignedTo() == null ||
+                    !ticket.getAssignedTo().getId().equals(currentUser.getId()) ||
+                    !sameDepartment(ticket.getDepartment(), currentUser.getDepartment())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Access denied: Support agents can only access comments on tickets assigned to them in their department");
+            }
+            return;
+        }
+
+        if (hasRole(auth, "TEAM_LEAD")) {
+            if (!sameDepartment(ticket.getDepartment(), currentUser.getDepartment())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Access denied: Team leads can only access comments on tickets in their department");
+            }
+            return;
+        }
+
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Unauthorized role for comments");
+    }
+
     // ─── POST COMMENT (Forces isInternal=false for End-Users) ─────────────────
     @PostMapping("/{id}/comments")
     @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
@@ -464,29 +498,18 @@ public class TicketController {
         Ticket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
 
+        User author = getCurrentUser(auth);
+        validateCommentAccess(ticket, author, auth);
+
         String content = (String) body.get("content");
         if (content == null || content.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "content is required");
         }
 
-        User author;
-        if (auth != null && auth.isAuthenticated()) {
-            author = userRepository.findByUsername(auth.getName())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        } else {
-            Object authorIdObj = body.get("authorId");
-            if (authorIdObj == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "authorId is required");
-            }
-            Long authorId = Long.valueOf(authorIdObj.toString());
-            author = userRepository.findById(authorId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Author user not found"));
-        }
-
         TicketComment comment = new TicketComment();
         comment.setTicket(ticket);
         comment.setAuthor(author);
-        comment.setContent(content);
+        comment.setContent(content.trim());
 
         // Internal note validation: ONLY staff can mark comment as internal
         boolean isStaff = isStaffUser(auth);
@@ -512,9 +535,11 @@ public class TicketController {
     @GetMapping("/{id}/comments")
     @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<List<TicketComment>> getComments(@PathVariable Long id, Authentication auth) {
-        if (!ticketRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
+        Ticket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
+
+        User currentUser = getCurrentUser(auth);
+        validateCommentAccess(ticket, currentUser, auth);
 
         boolean isStaff = isStaffUser(auth);
         List<TicketComment> comments = isStaff

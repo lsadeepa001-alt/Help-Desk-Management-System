@@ -168,7 +168,7 @@ class TicketCancellationSecurityTest {
         Ticket ticket = createTicket(owner, Status.OPEN);
 
         mockMvc.perform(delete("/tickets/" + ticket.getId()))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
 
         assertEquals(Status.OPEN, ticketRepository.findById(ticket.getId()).orElseThrow().getStatus());
     }

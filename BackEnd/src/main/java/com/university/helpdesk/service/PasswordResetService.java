@@ -4,6 +4,8 @@ import com.university.helpdesk.model.PasswordResetToken;
 import com.university.helpdesk.model.User;
 import com.university.helpdesk.repository.PasswordResetTokenRepository;
 import com.university.helpdesk.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,6 +24,8 @@ import java.util.List;
 
 @Service
 public class PasswordResetService {
+
+    private static final Logger log = LoggerFactory.getLogger(PasswordResetService.class);
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
@@ -78,7 +82,13 @@ public class PasswordResetService {
                         + resetLink + "\n\n"
                         + "This link will expire in " + expirationMinutes + " minutes.\n"
                         + "If you did not request this, please ignore this email.";
-                emailService.sendEmail(user.getEmail(), subject, body);
+                boolean sent = emailService.sendEmail(user.getEmail(), subject, body);
+                if (!sent) {
+                    log.warn("Password reset email delivery failed or was disabled for user id={}. Invalidating generated token.", user.getId());
+                    token.setUsedAt(now);
+                    token.setExpiresAt(now);
+                    tokenRepository.save(token);
+                }
             } else {
                 tokenRepository.save(token);
             }

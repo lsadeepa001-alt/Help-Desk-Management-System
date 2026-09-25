@@ -20,7 +20,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/tickets/{ticketId}/attachments")
-@CrossOrigin(origins = "*")
 public class AttachmentController {
 
     private final AttachmentService attachmentService;
