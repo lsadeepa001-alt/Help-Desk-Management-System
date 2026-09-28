@@ -38,6 +38,13 @@ if ! command -v npm &> /dev/null; then
 fi
 echo "[OK] npm found: $(npm -v)"
 
+# ── Check Configuration ──
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    echo "[OK] Local .env configuration detected."
+else
+    echo "[INFO] No root .env found. To configure SMTP or custom properties, copy .env.example to .env."
+fi
+
 echo ""
 echo "============================================================"
 echo "   Starting Backend (Spring Boot on port 8080)..."

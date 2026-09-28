@@ -43,6 +43,13 @@ IF %ERRORLEVEL% EQU 0 (
     ECHO [WARN] MySQL client not found in PATH. Ensure MySQL Server is running on port 3306.
 )
 
+REM ── Check Configuration ──
+IF EXIST "%~dp0.env" (
+    ECHO [OK] Local .env configuration detected.
+) ELSE (
+    ECHO [INFO] No root .env found. To configure SMTP or custom properties, copy .env.example to .env.
+)
+
 ECHO.
 ECHO ============================================================
 ECHO    Starting Backend (Spring Boot on port 8080)...

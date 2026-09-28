@@ -285,14 +285,6 @@ public class TicketController {
 
     // ─── OPTIONAL / BACKWARD-COMPATIBLE TRIAGE ENDPOINTS ─────────────────────
     @Deprecated
-    @PutMapping("/{id}/accept")
-    @PreAuthorize("hasAuthority('ROLE_SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<Ticket> acceptTicket(@PathVariable Long id, Authentication auth) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "ACCEPTED status transition is deprecated. Tickets proceed directly from OPEN to IN_PROGRESS upon claim or assignment.");
-    }
-
-    @Deprecated
     @PutMapping("/{id}/reject")
     @PreAuthorize("hasAuthority('ROLE_SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Ticket> rejectTicket(@PathVariable Long id, Authentication auth) {

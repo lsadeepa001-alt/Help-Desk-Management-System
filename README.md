@@ -90,6 +90,38 @@ export GEMINI_API_KEY="your_gemini_api_key"
 ```
 If no key is set, the chatbot gracefully falls back to the local Knowledge Base engine.
 
+## 📧 SMTP & Email Delivery Setup (Optional / Development)
+
+The application supports in-app notifications and SMTP email delivery (for self-service password reset requests and ticket lifecycle updates).
+
+### Quick Setup with `.env`
+
+1. **Copy the example configuration file:**
+   ```bash
+   cp .env.example .env
+   ```
+2. **Configure your SMTP credentials** in `.env`:
+   ```properties
+   EMAIL_ENABLED=true
+   SMTP_HOST=smtp.example.com
+   SMTP_PORT=587
+   SMTP_USERNAME=your-account@example.com
+   SMTP_PASSWORD=your-app-password
+   SMTP_FROM=your-account@example.com
+   ```
+   > ⚠️ **Important Security Reminders:**
+   > - **Never** commit your `.env` file or real passwords to source control (the `.env` file is git-ignored by default).
+   > - For providers requiring 2-Factor Authentication (e.g., Gmail, Outlook, SendGrid), generate and use a provider **App Password** or API token rather than your primary account password.
+   > - Ensure `SMTP_FROM` is an address authorized by your SMTP provider account.
+3. **Restart the Backend** for configuration changes to take effect.
+4. **Verify Diagnostics in Backend Logs:**
+   - If enabled and configured: `[INFO] Email delivery: ENABLED`
+   - If disabled: `[INFO] Email delivery: DISABLED`
+   - If incomplete: `[WARN] Email delivery enabled but required SMTP configuration is incomplete: missing ...`
+5. **Notification Behavior vs Password Reset:**
+   - **Self-Service Password Reset:** Automatically sends reset emails containing secure one-time tokens whenever global SMTP is configured and enabled (`EMAIL_ENABLED=true`), regardless of individual user notification preferences.
+   - **Ticket Lifecycle Notifications:** System event notifications (ticket created, assigned, status updated) send email only when **both** global SMTP is enabled AND the recipient has enabled **Email Notifications** in **Profile → Notification Delivery Preferences**.
+
 ## 📁 Project Structure
 
 ```

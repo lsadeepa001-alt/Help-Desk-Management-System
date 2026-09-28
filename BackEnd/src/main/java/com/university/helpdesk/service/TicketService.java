@@ -176,7 +176,7 @@ public class TicketService {
         Ticket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
 
-        if (ticket.getStatus() != Status.OPEN && ticket.getStatus() != Status.ACCEPTED &&
+        if (ticket.getStatus() != Status.OPEN &&
                 ticket.getStatus() != Status.IN_PROGRESS && ticket.getStatus() != Status.REOPENED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Only open or active routed tickets can be assigned or reassigned");
@@ -211,7 +211,7 @@ public class TicketService {
 
             ticket.setAssignedTo(assignedAgent);
 
-            if (ticket.getStatus() == Status.OPEN || ticket.getStatus() == Status.ACCEPTED || ticket.getStatus() == Status.REOPENED) {
+            if (ticket.getStatus() == Status.OPEN || ticket.getStatus() == Status.REOPENED) {
                 ticket.setStatus(Status.IN_PROGRESS);
             }
         }
@@ -274,7 +274,7 @@ public class TicketService {
         if (ticket.getStatus() == Status.CANCELLED || ticket.getStatus() == Status.REJECTED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Terminal tickets cannot be moved to another status");
         }
-        if (newStatus == Status.OPEN || newStatus == Status.ACCEPTED ||
+        if (newStatus == Status.OPEN ||
                 newStatus == Status.CANCELLED || newStatus == Status.REJECTED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "This status requires its dedicated workflow action");
@@ -300,7 +300,7 @@ public class TicketService {
                 }
             } else if (ticket.getAssignedTo() == null || !ticket.getAssignedTo().getId().equals(currentUser.getId())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "Support Agents can only update tickets assigned to them");
+                    "Support Agents can only update tickets assigned to them");
             }
         }
 
@@ -311,7 +311,6 @@ public class TicketService {
             case RESOLVED -> newStatus == Status.CLOSED || newStatus == Status.REOPENED;
             case CLOSED -> newStatus == Status.REOPENED;
             case REOPENED -> newStatus == Status.IN_PROGRESS || newStatus == Status.RESOLVED;
-            case ACCEPTED -> newStatus == Status.IN_PROGRESS;
             default -> false;
         };
         if (!allowedTransition) {

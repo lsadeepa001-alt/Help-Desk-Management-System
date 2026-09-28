@@ -14,7 +14,6 @@ const priorityColors = {
 
 const statusColors = {
   OPEN: 'bg-rose-500',
-  ACCEPTED: 'bg-cyan-500',
   IN_PROGRESS: 'bg-amber-500',
   RESOLVED: 'bg-emerald-500',
   CLOSED: 'bg-slate-500',

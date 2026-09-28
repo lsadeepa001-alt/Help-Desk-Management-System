@@ -5,7 +5,6 @@ const API_URL = 'http://localhost:8080/api/tickets';
 
 const statusColors = {
   OPEN: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
-  ACCEPTED: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30',
   IN_PROGRESS: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
   RESOLVED: 'bg-purple-500/20 text-purple-400 border border-purple-500/30',
   CLOSED: 'bg-slate-500/20 text-slate-400 border border-slate-500/30',

@@ -99,6 +99,8 @@ class SelfServicePasswordResetTest {
 
         assertNotNull(sentMessage.getTo());
         assertEquals("reset.student@university.edu", sentMessage.getTo()[0]);
+        assertNotNull(sentMessage.getFrom(), "Sender address must be populated");
+        assertEquals("noreply@uniassist360.local", sentMessage.getFrom(), "Default fallback sender address should match configuration");
         String body = sentMessage.getText();
         assertNotNull(body);
         assertTrue(body.contains("http://localhost:5173/password-reset?token="), "Email body must contain reset URL with token");
@@ -189,5 +191,18 @@ class SelfServicePasswordResetTest {
 
         List<PasswordResetToken> activeTokens = tokenRepository.findByUserAndUsedAtIsNull(student);
         assertTrue(activeTokens.isEmpty(), "Active token must be invalidated when SMTP dispatch throws an exception");
+    }
+
+    @Test
+    @DisplayName("EmailService resolves custom effective from address when configured")
+    void testEffectiveFromAddressResolution() {
+        assertEquals("noreply@uniassist360.local", emailService.getEffectiveFromAddress());
+
+        org.springframework.test.util.ReflectionTestUtils.setField(emailService, "fromAddress", "custom-sender@university.edu");
+        try {
+            assertEquals("custom-sender@university.edu", emailService.getEffectiveFromAddress());
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(emailService, "fromAddress", "noreply@uniassist360.local");
+        }
     }
 }
