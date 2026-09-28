@@ -52,7 +52,11 @@ public class KbController {
         KbCategory kbCategory = null;
         if (category != null && !category.trim().isEmpty() && !"ALL".equalsIgnoreCase(category)) {
             try {
-                kbCategory = KbCategory.valueOf(category.trim().toUpperCase());
+                String catNormalized = category.trim().toUpperCase();
+                if ("IT_SERVICES".equals(catNormalized)) {
+                    catNormalized = "IT";
+                }
+                kbCategory = KbCategory.valueOf(catNormalized);
             } catch (IllegalArgumentException ignored) {}
         }
 
@@ -108,12 +112,24 @@ public class KbController {
         article.setKeywords(keywords != null ? keywords.trim() : "");
         article.setFaq(isFaq);
 
-        if (categoryStr != null) {
-            try {
-                article.setCategory(KbCategory.valueOf(categoryStr.trim().toUpperCase()));
-            } catch (IllegalArgumentException e) {
-                article.setCategory(KbCategory.IT_SERVICES);
+        if (categoryStr != null && !categoryStr.trim().isEmpty()) {
+            String catNormalized = categoryStr.trim().toUpperCase();
+            if ("IT_SERVICES".equals(catNormalized)) {
+                catNormalized = "IT";
             }
+            try {
+                KbCategory parsed = KbCategory.valueOf(catNormalized);
+                if (parsed == KbCategory.ACADEMIC_AFFAIRS || parsed == KbCategory.LIBRARY) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Category " + categoryStr + " is deprecated. Allowed categories: IT, MAINTENANCE, SECURITY");
+                }
+                article.setCategory(parsed);
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Invalid category: " + categoryStr + ". Allowed categories: IT, MAINTENANCE, SECURITY");
+            }
+        } else if (article.getCategory() == null) {
+            article.setCategory(KbCategory.IT);
         }
 
         KnowledgeBaseArticle saved = articleRepository.save(article);

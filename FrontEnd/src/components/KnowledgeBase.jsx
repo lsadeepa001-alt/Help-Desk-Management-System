@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 const API = 'http://localhost:8080/api';
 
 const categoryBadges = {
+  IT: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
   IT_SERVICES: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
   ACADEMIC_AFFAIRS: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
   MAINTENANCE: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
@@ -29,7 +30,7 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
     id: null,
     title: '',
     content: '',
-    category: 'IT_SERVICES',
+    category: 'IT',
     keywords: '',
     isFaq: false,
   });
@@ -87,7 +88,7 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
         authorId: user?.id,
       });
       setShowEditor(false);
-      setEditFormData({ id: null, title: '', content: '', category: 'IT_SERVICES', keywords: '', isFaq: false });
+      setEditFormData({ id: null, title: '', content: '', category: 'IT', keywords: '', isFaq: false });
       fetchArticles();
     } catch (err) {
       setEditorMsg('Failed to save article. ' + (err.response?.data?.message || ''));
@@ -97,11 +98,13 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
   };
 
   const handleEditClick = (article) => {
+    let cat = article.category || 'IT';
+    if (cat === 'IT_SERVICES') cat = 'IT';
     setEditFormData({
       id: article.id,
       title: article.title,
       content: article.content,
-      category: article.category || 'IT_SERVICES',
+      category: cat,
       keywords: article.keywords || '',
       isFaq: article.isFaq,
     });
@@ -168,7 +171,7 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
             {canEdit && (
               <button
                 onClick={() => {
-                  setEditFormData({ id: null, title: '', content: '', category: 'IT_SERVICES', keywords: '', isFaq: false });
+                  setEditFormData({ id: null, title: '', content: '', category: 'IT', keywords: '', isFaq: false });
                   setShowEditor(true);
                 }}
                 className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition flex items-center gap-1.5 whitespace-nowrap"
@@ -183,11 +186,9 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
         <div className="flex gap-2 overflow-x-auto pb-1 pt-1 hide-scrollbar">
           {[
             { id: 'ALL', label: 'All Categories', icon: '🌐' },
-            { id: 'IT_SERVICES', label: 'IT Services', icon: '💻' },
-            { id: 'ACADEMIC_AFFAIRS', label: 'Academic Affairs', icon: '🎓' },
+            { id: 'IT', label: 'IT', icon: '💻' },
             { id: 'MAINTENANCE', label: 'Maintenance', icon: '🛠️' },
-            { id: 'LIBRARY', label: 'Library', icon: '📚' },
-            { id: 'SECURITY', label: 'Campus Security', icon: '🛡️' },
+            { id: 'SECURITY', label: 'Security', icon: '🛡️' },
           ].map(cat => (
             <button
               key={cat.id}
@@ -382,11 +383,9 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
                     onChange={e => setEditFormData({ ...editFormData, category: e.target.value })}
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   >
-                    <option value="IT_SERVICES">IT Services</option>
-                    <option value="ACADEMIC_AFFAIRS">Academic Affairs</option>
+                    <option value="IT">IT</option>
                     <option value="MAINTENANCE">Maintenance</option>
-                    <option value="LIBRARY">Library</option>
-                    <option value="SECURITY">Campus Security</option>
+                    <option value="SECURITY">Security</option>
                   </select>
                 </div>
 

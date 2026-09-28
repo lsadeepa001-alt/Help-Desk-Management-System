@@ -459,7 +459,7 @@ export default function TicketDetails({ ticketId, onBack }) {
         {/* Metadata grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-700/50 text-xs text-slate-400">
           <div>
-            <div className="text-slate-500 uppercase tracking-wider mb-1">Technical Section</div>
+            <div className="text-slate-500 uppercase tracking-wider mb-1">Technical Department</div>
             <div className="text-slate-200 font-semibold text-sm text-indigo-300">
               {ticket.department || <span className="text-slate-500 italic font-normal">Awaiting routing</span>}
             </div>
@@ -507,7 +507,7 @@ export default function TicketDetails({ ticketId, onBack }) {
         {isAdmin && !ticket.department && !isTerminal && (
           <div className="pt-3 border-t border-slate-700/50 space-y-2">
             <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
-              Route to Technical Section
+              Route to Technical Department
             </label>
             <div className="flex flex-wrap items-center gap-2">
               <select
@@ -603,17 +603,6 @@ export default function TicketDetails({ ticketId, onBack }) {
                 🔄 Reopen
               </button>
             )}
-
-            {/* System Administrator permanent delete button */}
-            {isAdmin && (
-              <button
-                onClick={handlePermanentDelete}
-                className="px-3.5 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 ml-auto"
-                title="Permanently remove ticket and all related records"
-              >
-                🗑️ Permanent Delete
-              </button>
-            )}
           </div>
         )}
 
@@ -635,18 +624,6 @@ export default function TicketDetails({ ticketId, onBack }) {
           </div>
         )}
 
-        {/* Admin permanent delete on terminal tickets */}
-        {isAdmin && isTerminal && (
-          <div className="pt-3 border-t border-slate-700/50 flex justify-end">
-            <button
-              onClick={handlePermanentDelete}
-              className="px-3.5 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40 text-xs font-semibold rounded-lg transition flex items-center gap-1.5"
-              title="Permanently remove ticket and all related records"
-            >
-              🗑️ Permanent Delete
-            </button>
-          </div>
-        )}
 
         {/* Resolve with notes input */}
         {showResolveInput && (
@@ -678,6 +655,29 @@ export default function TicketDetails({ ticketId, onBack }) {
 
         {statusMsg && (
           <p className="text-rose-400 text-xs font-medium">{statusMsg}</p>
+        )}
+
+        {/* System Administrator Emergency Maintenance: Permanent Purge */}
+        {isAdmin && (
+          <div className="pt-4 border-t border-slate-700/60 mt-4">
+            <div className="bg-rose-950/20 border border-rose-500/30 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
+                  <span>⚠️</span> Emergency Administrative Maintenance
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Permanently purge this ticket, assignment logs, internal notes, attachments, and ratings. This operation is strictly irreversible.
+                </p>
+              </div>
+              <button
+                onClick={handlePermanentDelete}
+                className="px-3.5 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 hover:text-white border border-rose-500/50 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shrink-0"
+                title="Permanently purge ticket and associated data"
+              >
+                🗑️ Permanently Purge Ticket
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

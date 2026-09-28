@@ -1,227 +1,199 @@
-# UniAssist 360 – Engineering Implementation Report: Agent Activity Logs & Manager Analytics Insights
+# UniAssist 360 – Engineering Report: Proposal Alignment Cleanup
 
 **Project:** UniAssist 360 (University Help Desk Management System)  
 **Academic Baseline:** SLIIT SE2030 (Group KU-09)  
-**Scope of Implementation:** End-to-end implementation of the final two specification features: Operational Agent Activity Logs and Manager Analytics Strategic Insights/Comments, complete with backend audit tracking, authoritative object-level authorization, CSV export enrichment, unified frontend dashboard extensions, zero-seed clean startup compliance, and full test suite verification.
+**Scope of Implementation:** Proposal Alignment Cleanup across Backend and Frontend architectures — Technical Department alignment, Knowledge Base category scoping, legacy `ACCEPTED` status deprecation, existing-user promotion UX/validation, ticket hard-delete policy isolation, terminology standardization, and full verification.
 
 ---
 
-## 1. Executive Summary & Scope
+## 1. Executive Summary & Purpose
 
-This implementation cycle successfully delivers the two remaining SE2030 proposal capabilities that were previously absent from the UniAssist 360 platform:
+The goal of this cleanup phase was to rigorously audit, clean, and align the UniAssist 360 codebase against the approved **SE2030 Help Desk Management System specification**, resolving legacy inconsistencies, ambiguities, and out-of-scope remnants while strictly preserving all existing production-grade modules.
 
-1. **Feature 1 — Agent Activity Logs:** An auditable, persistent, immutable operational activity trail capturing operational staff actions across the entire ticket lifecycle (self-claims, assignments, reassignments, routing, rerouting, status transitions, resolutions, reopenings, public comments, and internal notes). Includes executive analytics endpoints for filtered query and aggregated activity summaries.
-2. **Feature 2 — Manager Analytics Comments / Strategic Insights:** A dedicated management commentary subsystem allowing executive managers (`MANAGER_EXECUTIVE`) and administrators (`SYSTEM_ADMINISTRATOR`) to record, update, review, and delete strategic observations and operational action items directly within the Analytics & Report Center.
-
-### Preserved Architectural Constraints
-- **Seven-Role RBAC:** Strict preservation of `STUDENT`, `LECTURER`, `SUPPORT_AGENT`, `TEAM_LEAD`, `KNOWLEDGE_MANAGER`, `MANAGER_EXECUTIVE`, and `SYSTEM_ADMINISTRATOR`.
-- **Unified Frontend Architecture:** All new management capabilities are integrated directly into `FrontEnd/src/components/AnalyticsDashboard.jsx`. No redundant dashboards were created.
-- **Zero-Seed Clean Database Startup:** Clean database initialization creates exactly 0 activity logs and 0 insight records. Schema generation occurs automatically via `spring.jpa.hibernate.ddl-auto=update`.
-- **Authoritative Backend Security:** All authorization rules are enforced authoritatively via Spring Security method security annotations (`@PreAuthorize`) and JPA-level principal verification.
-- **No Git Commits/Pushes:** All code changes remain in the local working directory.
+### Key Guarantees Preserved
+- **Seven Core Roles:** `STUDENT`, `LECTURER`, `SUPPORT_AGENT`, `TEAM_LEAD`, `KNOWLEDGE_MANAGER`, `MANAGER_EXECUTIVE`, and `SYSTEM_ADMINISTRATOR`.
+- **Unified Role-Adaptive Frontend:** Single-page dashboard architecture (`Dashboard.jsx`), responsive navigation, per-tab session auth, and live metric widgets.
+- **Full Operational Capabilities:** Assignment history, agent activity logs, manager analytics insights, CSAT rating workflows, SLA engine, Gemini chatbot escalation, object-level attachment authorization, and real-time notification dispatching.
+- **Zero-Seed Clean Startup Compliance:** System boot maintains 0 unmanaged test data; schema auto-migration handles all entity relationships safely.
+- **Local Working Tree Integrity:** No code was committed or pushed to remote repositories.
 
 ---
 
-## 2. Feature 1: Agent Activity Logs
+## 2. Technical Departments vs. Requester Academic Departments
 
-### 2.1. Auditable Action Taxonomy
-The `AgentActivityAction` enum formalizes every auditable staff interaction:
+### 2.1. Problem & Architectural Ambiguity
+In previous iterations, the concept of a "Department" was conflated between two distinct university contexts:
+1. **Requester Academic Department:** Academic affiliation of Students and Lecturers (e.g. `Computing`, `Engineering`, `Business`, `Science`).
+2. **Technical Department:** Operational service units responsible for resolving tickets (`IT`, `Maintenance`, `Security`).
 
-| Action Enum | Lifecycle Trigger | Details Captured |
+In some views (e.g. `AgentDashboard.jsx`), filters and cards fell back to `t.department || t.createdBy?.department`, mixing ticket routing sections with academic faculties.
+
+### 2.2. Solution & Enforcement
+- **Backend Authorization (`UserController.java`):**
+  - Privileged creation (`POST /api/users`) and role promotion (`PUT /api/users/{id}/role`) strictly validate operational staff (`SUPPORT_AGENT`, `TEAM_LEAD`) against `TECHNICAL_DEPARTMENTS` (`IT`, `MAINTENANCE`, `SECURITY`).
+  - Attempting to assign an academic or invalid department returns `400 Bad Request`.
+  - Non-operational privileged roles (`KNOWLEDGE_MANAGER`, `MANAGER_EXECUTIVE`, `SYSTEM_ADMINISTRATOR`) have their department automatically cleared (`null`).
+- **Ticket Routing (`TicketService.java`, `TicketController.java`, `CreateTicket.jsx`):**
+  - Tickets must be routed to one of `IT`, `Maintenance`, or `Security`.
+  - The submitter's academic department is preserved as `ticket.createdBy.department` (`Requester Department`) and rendered distinctly from `ticket.department` (`Technical Department`).
+- **Frontend Dashboard Alignment (`AgentDashboard.jsx`):**
+  - Filters strictly operate on `t.department` against `['ALL', 'IT', 'Maintenance', 'Security']`.
+  - Ticket row badges clearly delineate `🏢 Dept: {ticket.department}` and `🎓 Requester: {ticket.createdBy.department}`.
+
+---
+
+## 3. Knowledge Base Category Scope Alignment
+
+### 3.1. Problem
+The proposal explicitly specifies Help Desk categories centered around core campus service units: `IT`, `Maintenance`, and `Security`. However, the enum `KbCategory` retained legacy development categories: `IT_SERVICES`, `ACADEMIC_AFFAIRS`, and `LIBRARY`. Furthermore, creating an article defaulted to `IT_SERVICES`.
+
+### 3.2. Solution & Backward Compatibility
+- **Backend Model (`KbCategory.java`):**
+  - Added primary canonical categories: `IT`, `MAINTENANCE`, `SECURITY`.
+  - Retained `IT_SERVICES`, `ACADEMIC_AFFAIRS`, and `LIBRARY` marked with `@Deprecated` annotations so existing database records deserialize without errors.
+- **Controller Validation (`KbController.java`):**
+  - `getArticles`: Automatically maps legacy alias `IT_SERVICES` to `IT` when filtering.
+  - `saveArticle`:
+    - Automatically maps incoming `IT_SERVICES` to canonical `IT`.
+    - Prohibits creation or update of articles under deprecated categories (`ACADEMIC_AFFAIRS`, `LIBRARY`), returning `400 Bad Request: Category <category> is deprecated. Allowed categories: IT, MAINTENANCE, SECURITY`.
+    - Defaults new articles to `KbCategory.IT`.
+- **Frontend Alignment (`KnowledgeBase.jsx`):**
+  - `categoryBadges` styled for `IT`, `MAINTENANCE`, `SECURITY` (with fallback styling for legacy records).
+  - Category filter pills reduced to: `ALL`, `IT`, `MAINTENANCE`, `SECURITY`.
+  - Article publishing/editing modal restricted to: `IT`, `MAINTENANCE`, `SECURITY`.
+  - Editor auto-normalizes legacy `IT_SERVICES` to `IT` when loading an existing article.
+
+---
+
+## 4. Legacy `ACCEPTED` Status Audit & Deprecation
+
+### 4.1. Audit Findings
+The proposal defines the concrete ticket lifecycle as:
+$$\text{OPEN} \longrightarrow \text{IN\_PROGRESS} \longrightarrow \text{RESOLVED} \longrightarrow \text{CLOSED} \quad (\text{or } \text{REOPENED} / \text{CANCELLED} / \text{REJECTED})$$
+The `ACCEPTED` status was a legacy triage state from early development. `TicketService.java` already rejected operational transitions into `ACCEPTED` via `updateStatus`. However:
+1. `TicketController.java` exposed `PUT /api/tickets/{id}/accept`.
+2. `TicketList.jsx` rendered `ACCEPTED` in its status filter pills.
+
+### 4.2. Implementation
+- **Backend Model (`Status.java`):** Marked `ACCEPTED` as `@Deprecated`.
+- **Endpoint Deprecation (`TicketController.java`):**
+  `PUT /api/tickets/{id}/accept` now throws `ResponseStatusException(HttpStatus.BAD_REQUEST, "ACCEPTED status transition is deprecated. Tickets proceed directly from OPEN to IN_PROGRESS upon claim or assignment.")`.
+- **Frontend Cleanup (`TicketList.jsx`):** Removed `ACCEPTED` from the interactive status filter bar while preserving `statusStyles.ACCEPTED` to render legacy tickets gracefully.
+
+---
+
+## 5. Existing-User Role Change UX & Validation
+
+### 5.1. UX Flow Gap
+Previously, if a System Administrator attempted to promote an existing `STUDENT` or `LECTURER` to `SUPPORT_AGENT` or `TEAM_LEAD` from the User Management panel, the frontend immediately rejected the action with an error toast if the user lacked a technical department, with no UI mechanism to assign one.
+
+### 5.2. Modal Implementation (`App.jsx`)
+- Introduced a dedicated **Assign Technical Department Modal** triggered when promoting any user to `SUPPORT_AGENT` or `TEAM_LEAD`.
+- The modal displays:
+  - User Full Name and Username.
+  - Target Role (`Support Agent` or `Team Lead`).
+  - Dropdown selecting from approved technical departments: `IT`, `Maintenance`, `Security`.
+- Submitting the modal invokes `PUT /api/users/{id}/role` with `{ role: newRole, department: selectedDept }`.
+- Backend validation ensures that promotions to operational roles fail with `400 Bad Request` if a valid technical department is not supplied or already present on the user record.
+- Demoting or changing role to `KNOWLEDGE_MANAGER`, `MANAGER_EXECUTIVE`, or `SYSTEM_ADMINISTRATOR` automatically clears the department attribute.
+
+---
+
+## 6. Ticket Hard-Delete Policy & UI Isolation
+
+### 6.1. Safety & Governance Principle
+Permanent deletion (`DELETE /api/tickets/{id}/permanent`) cascades through and irreversibly destroys the ticket, all file attachments, CSAT reviews, assignment logs, activity audit trails, comments, and notifications. This must never be confused with daily operational lifecycle actions (e.g. In Progress, Resolve, Close).
+
+### 6.2. UI Isolation (`TicketDetails.jsx`)
+- Removed the permanent delete button entirely from the staff lifecycle actions row.
+- Relocated permanent deletion into a dedicated **Emergency Administrative Maintenance** card at the bottom of the ticket view, strictly rendered for `SYSTEM_ADMINISTRATOR`.
+- Framed in high-visibility warning styling (`bg-rose-950/20 border-rose-500/30`) with clear cautionary text:
+  > *"Permanently purge this ticket, assignment logs, internal notes, attachments, and ratings. This operation is strictly irreversible."*
+- Requires browser confirmation before issuing the permanent purge request.
+
+---
+
+## 7. Terminology Standardization
+
+Audited and standardized platform UI and backend terminology across all views:
+
+| Old / Inconsistent Term | Standardized Proposal Term | Location(s) Updated |
 | :--- | :--- | :--- |
-| `TICKET_CLAIMED` | Support Agent claims an unassigned ticket | Claiming agent name and department |
-| `TICKET_ASSIGNED` | Team Lead or Admin assigns an unassigned ticket | Target agent name and department |
-| `TICKET_REASSIGNED` | Team Lead or Admin reassigns ticket to a different agent | Previous agent name and new agent name |
-| `TICKET_ROUTED` | Staff or Admin sets initial ticket department | Routed technical department |
-| `TICKET_REROUTED` | Team Lead or Admin changes ticket department | Source and destination departments |
-| `STATUS_CHANGED` | Operational status transition (e.g. `IN_PROGRESS`) | Previous and subsequent statuses |
-| `TICKET_RESOLVED` | Assigned Support Agent completes ticket resolution | Mandatory resolution notes snapshot |
-| `TICKET_REOPENED` | Ticket Creator or Admin reopens resolved/closed ticket | Reopen rationale |
-| `PUBLIC_COMMENT_ADDED` | Staff user posts public ticket comment | Comment author and ticket link |
-| `INTERNAL_NOTE_ADDED` | Staff user adds internal note | Note author and ticket link |
-
-### 2.2. Backend Data Model & Repository
-* **Entity (`AgentActivityLog.java`):**
-  * `id`: Auto-incrementing primary key (`GenerationType.IDENTITY`).
-  * `ticket`: Lazy `Ticket` association with `@OnDelete(action = OnDeleteAction.CASCADE)`.
-  * `actor`: Lazy `User` association capturing the operational principal.
-  * `actorName`, `actorRole`, `actorDepartment`: Denormalized snapshot attributes ensuring immutable audit integrity even if user attributes change.
-  * `action`: Enumerated `AgentActivityAction` (`@Enumerated(EnumType.STRING)`).
-  * `details`: Text description (max 1000 characters).
-  * `createdAt`: Immutable timestamp with `@PrePersist` defaults.
-* **DTO (`AgentActivityLogDTO.java`):** Clean projection exposing ticket number, title, actor metadata, action enum, details, and ISO-8601 timestamp without lazy loading overhead.
-* **Repository (`AgentActivityLogRepository.java`):** Spring Data JPA repository supporting reverse-chronological retrieval, actor filtering, ticket filtering, and `deleteByTicketId(Long ticketId)`.
-
-### 2.3. Service Integration Points
-The audit logging is wired directly into the core service layer:
-* **`TicketService.java`:**
-  * `claimTicket`: Records `TICKET_CLAIMED` on successful self-assignment.
-  * `assignTicket`: Records `TICKET_ASSIGNED` on initial agent allocation or `TICKET_REASSIGNED` when changing assigned staff.
-  * `updateStatus`: Records `TICKET_RESOLVED` (capturing mandatory notes) or `STATUS_CHANGED`.
-  * `reopenTicket`: Records `TICKET_REOPENED` (capturing creator's reason).
-* **`TicketController.java`:**
-  * `routeTicket`: Records `TICKET_ROUTED` or `TICKET_REROUTED` upon technical department modifications.
-  * `addComment`: Records `INTERNAL_NOTE_ADDED` when `isInternal == true` or `PUBLIC_COMMENT_ADDED` when public.
-* **`TicketDeletionService.java`:** Added `agentActivityLogRepository.deleteByTicketId(ticketId)` to ensure cascading purge on permanent ticket deletion.
-
-### 2.4. Analytics Activity Endpoints
-Guarded by `@PreAuthorize("hasAnyRole('MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")`:
-* `GET /api/analytics/activity-logs`:
-  * Supports optional query parameters: `agentId` (Long), `department` (String), `action` (String), `dateFrom` (ISO date), `dateTo` (ISO date).
-  * Returns `List<AgentActivityLogDTO>` sorted in reverse chronological order.
-* `GET /api/analytics/activity-summary`:
-  * Supports optional query parameters: `department`, `dateFrom`, `dateTo`.
-  * Returns aggregated metrics: `totalActivities`, `byAction` (map of action counts), `byDepartment` (map of department counts), and `recentActivities`.
+| `Technical Section` | `Technical Department` | `TicketDetails.jsx` metadata & routing dropdown |
+| `IT Services` / `Campus Security` (with emojis in options) | `IT` / `Maintenance` / `Security` | `CreateTicket.jsx`, `KnowledgeBase.jsx`, `App.jsx` |
+| Conflated `Department` | `Technical Department` vs `Requester Department` | `CreateTicket.jsx`, `AgentDashboard.jsx`, `TicketDetails.jsx` |
+| Ambiguous role select | Explicit role labels with operational department modal | `App.jsx` User Management table |
 
 ---
 
-## 3. Feature 2: Manager Analytics Comments / Insights
+## 8. Proposal Alignment Regression Test Suite
 
-### 3.1. Purpose & Design Principles
-Provides high-level management with persistent commentary capabilities on system analytics, SLA breaches, and operational bottlenecks directly alongside live metrics:
-1. **Strict Author Identity:** The author is derived exclusively from the authenticated Spring Security principal (`getCurrentUser(auth)`). Any `authorId` supplied in the JSON request body is strictly ignored to eliminate identity spoofing.
-2. **Horizontal Privilege Enforcement (IDOR Protection):** A manager (`MANAGER_EXECUTIVE`) can edit and delete only their own insights. Attempting to update or delete another manager's insight results in `403 Forbidden`.
-3. **Administrative Oversight:** The `SYSTEM_ADMINISTRATOR` has platform-wide oversight and can update or delete any insight for governance purposes.
-4. **Input Validation:** Content is validated as non-blank and capped at 4,000 characters. Blank content returns `400 Bad Request`.
+Created a dedicated test suite: [`ProposalAlignmentSecurityTest.java`](file:///d:/SLIIT-Y2-S1/Web-Base-Help-Desk/BackEnd/src/test/java/com/university/helpdesk/ProposalAlignmentSecurityTest.java) covering all proposal alignment rules:
 
-### 3.2. Data Model & DTO
-* **Entity (`AnalyticsInsight.java`):**
-  * `id`: Primary key (`GenerationType.IDENTITY`).
-  * `author`: `@ManyToOne(fetch = FetchType.LAZY, optional = false)` pointing to `User`.
-  * `authorName`, `authorRole`, `department`: Snapshot attributes.
-  * `title`: Optional headline (max 200 characters).
-  * `content`: Required body text (max 4,000 characters).
-  * `createdAt` & `updatedAt`: Timestamps with `@PrePersist` and `@PreUpdate` hooks.
-* **DTO (`AnalyticsInsightDTO.java`):** Exposes `id`, `authorId`, `authorName`, `authorRole`, `department`, `title`, `content`, `createdAt`, `updatedAt`, and `edited` boolean flag.
-
-### 3.3. CRUD Endpoints (`/api/analytics/insights`)
-Guarded by `@PreAuthorize("hasAnyRole('MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")`:
-
-| HTTP Method | Endpoint | Description | Access Rules |
-| :---: | :--- | :--- | :--- |
-| `GET` | `/api/analytics/insights` | Retrieve all insights in reverse chronological order | `MANAGER_EXECUTIVE`, `SYSTEM_ADMINISTRATOR` |
-| `POST` | `/api/analytics/insights` | Create new strategic insight | `MANAGER_EXECUTIVE`, `SYSTEM_ADMINISTRATOR` (author bound to caller) |
-| `PUT` | `/api/analytics/insights/{id}` | Update existing insight | Author or `SYSTEM_ADMINISTRATOR` |
-| `DELETE` | `/api/analytics/insights/{id}` | Delete existing insight | Author or `SYSTEM_ADMINISTRATOR` |
+| Test Method | Verification Target | Expected Result | Status |
+| :--- | :--- | :--- | :--- |
+| `operationalStaffCreationValidatesDepartment()` | Creating operational staff with academic/invalid dept vs technical dept | 400 Bad Request on "Computing", 201 Created on "IT" | **PASS** |
+| `userPromotionRequiresTechnicalDepartment()` | Promoting student without dept, promoting with technical dept, demoting to KM, non-admin role change | 400 on missing dept, 200 on valid dept, dept cleared on KM, 403 on non-admin | **PASS** |
+| `legacyAcceptedStatusReturnsBadRequest()` | Calling `PUT /api/tickets/{id}/accept` | 400 Bad Request with deprecation notice | **PASS** |
+| `kbCategoryScopeValidation()` | Creating KB articles with `IT`, `IT_SERVICES`, `ACADEMIC_AFFAIRS`, `LIBRARY` | 201 on IT & IT_SERVICES (mapped), 400 on ACADEMIC_AFFAIRS and LIBRARY | **PASS** |
+| `permanentTicketDeletionAuthorization()` | Non-admin vs Admin calling `DELETE /api/tickets/{id}/permanent` | 403 Forbidden for Support Agent, 204 No Content for Admin (ticket purged) | **PASS** |
 
 ---
 
-## 4. Enriched CSV Reporting
+## 9. Full System Verification Results
 
-In `AnalyticsService.generateCsvReport()`, the CSV generator was expanded. In addition to individual ticket rows, the exported file now appends two distinct audit and management sections:
+### 9.1. Backend Test Suite (`mvn test`)
+- **Total Test Classes Executed:** 13
+- **Total Tests Run:** 101
+- **Failures:** 0
+- **Errors:** 0
+- **Skipped:** 0
+- **Result:** `BUILD SUCCESS` (Execution time: ~1 min 5 s)
 
-```csv
---- OPERATIONAL AGENT ACTIVITY LOGS ---
-Timestamp,Actor,Role,Department,Action,Ticket Number,Details
-"2026-09-26 03:20","Jane Doe","SUPPORT_AGENT","IT","TICKET_CLAIMED","TICK-001234","Ticket claimed by agent Jane Doe"
-...
+### 9.2. Frontend Production Build (`npm run build`)
+- **Bundler:** Vite v8.2.1
+- **Modules Transformed:** 96 modules
+- **Output:**
+  - `dist/index.html` (0.45 kB)
+  - `dist/assets/index-CHXkHt4v.css` (90.48 kB)
+  - `dist/assets/index-DuQtQjWL.js` (516.97 kB)
+- **Result:** Success, 0 build errors.
 
---- MANAGEMENT ANALYTICS INSIGHTS ---
-Timestamp,Author,Role,Department,Title,Content,Last Updated
-"2026-09-26 03:22","Alex Director","MANAGER_EXECUTIVE","Operations","Q3 SLA Analysis","Observed 18% improvement in IT ticket closure times.","2026-09-26 03:25"
-...
+### 9.3. Frontend Linter (`npm run lint`)
+- **Linter:** `oxlint`
+- **Files Scanned:** 24 files across 92 rules
+- **Errors:** 0
+- **Result:** Clean exit code 0.
+
+### 9.4. Git Diff & Working Tree Check
+- **`git diff --check`:** Clean exit code 0 (no whitespace errors or merge markers).
+- **Branch:** `master` (all changes kept locally in working tree; no commits or pushes).
+
+---
+
+## 10. Summary of Changed Files
+
 ```
+BackEnd/
+├── src/main/java/com/university/helpdesk/
+│   ├── controller/
+│   │   ├── KbController.java               (Category mapping to IT, rejection of out-of-scope categories)
+│   │   ├── TicketController.java           (Deprecation of acceptTicket endpoint with 400 Bad Request)
+│   │   └── UserController.java             (Strict validation of technical dept on role promotion, clear dept for KM/Admin)
+│   └── model/
+│       ├── KbCategory.java                 (Added IT, marked legacy categories @Deprecated)
+│       ├── KnowledgeBaseArticle.java       (Default category updated to IT)
+│       └── Status.java                     (Marked ACCEPTED @Deprecated)
+└── src/test/java/com/university/helpdesk/
+    └── ProposalAlignmentSecurityTest.java   (5 new comprehensive automated regression tests)
 
-This enriches the CSV without disrupting legacy automated parsers that read the initial ticket rows.
-
----
-
-## 5. Unified Frontend Dashboard Integration
-
-All capabilities were integrated into `FrontEnd/src/components/AnalyticsDashboard.jsx`:
-
-1. **Role-Adaptive Fetching:**
-   - Non-executive staff (e.g. `TEAM_LEAD`) only fetch summary metrics and agent leaderboard.
-   - Privileged management (`MANAGER_EXECUTIVE`, `SYSTEM_ADMINISTRATOR`) concurrently fetch:
-     - Live metrics & agent performance
-     - SLA compliance matrix
-     - Operational staff activity summary & logs
-     - Management strategic insights feed
-2. **Operational Staff Activity Stream UI:**
-   - Header with total logged events counter.
-   - Comprehensive filter bar:
-     - Full-text search (actor name, ticket number, ticket title, details)
-     - Action type dropdown selector
-     - Technical department dropdown selector (`IT`, `Maintenance`, `Security`)
-     - Quick "Clear Filters" action
-   - Responsive activity table with color-coded semantic badges:
-     - `TICKET_RESOLVED` (emerald), `TICKET_ASSIGNED` (indigo), `TICKET_REASSIGNED` (cyan), `TICKET_CLAIMED` (purple), `TICKET_ROUTED`/`TICKET_REROUTED` (blue/sky), `INTERNAL_NOTE_ADDED` (amber), `PUBLIC_COMMENT_ADDED` (teal), `TICKET_REOPENED` (rose).
-     - Ticket reference links with truncated title popovers.
-3. **Management Strategic Insights UI:**
-   - "+ Publish Strategic Insight" button opening a clean modal dialog.
-   - Card grid layout featuring author avatar, name, role badge, department, formatted timestamp, and `● Edited` pill.
-   - Edit and Delete controls rendered conditionally:
-     `const canModify = user?.id === item.authorId || user?.role === 'SYSTEM_ADMINISTRATOR';`
-   - Interactive Modal Form:
-     - Optional Title input
-     - Real-time character counter (`${insightForm.content.length} / 4000`)
-     - Validation ensuring non-empty submission
-     - Loading spinner during async save
-
----
-
-## 6. Zero-Seed Clean Database Startup
-
-To ensure compliance with academic evaluation and specification standards:
-- Verified that `DataSeeder.java` contains **no demo or mock seeding** for `agent_activity_logs` or `analytics_insights`.
-- Verified via `CleanStartupDataTest.java` that on fresh startup, the database contains zero operational tickets, zero comments, zero activity logs, and zero insights.
-
----
-
-## 7. Verification Results
-
-### 7.1. Automated Test Suites
-Two dedicated test classes were authored and integrated into the suite:
-
-1. **`AgentActivityLogTest.java` (3 test suites):**
-   - `operationalActionsGenerateActivityLogs`: Validates that self-claiming, reassigning, rerouting, internal notes, public comments, resolution, and reopening all generate corresponding `AgentActivityLog` entries.
-   - `activityEndpointsEnforceRoleAuthorization`: Validates that `MANAGER_EXECUTIVE` and `SYSTEM_ADMINISTRATOR` receive `200 OK`, while `SUPPORT_AGENT` and `STUDENT` receive `403 Forbidden`.
-   - `activityLogFilteringWorks`: Validates exact filtering by action type and department.
-2. **`AnalyticsInsightSecurityTest.java` (6 test suites):**
-   - `managerCanCreateAndRetrieveInsights`: Validates creation, retrieval, and author spoof-resistance.
-   - `managerCanUpdateOwnInsight`: Validates edit workflow and `edited: true` flag.
-   - `crossManagerIdorProtection`: Validates that Manager B receives `403 Forbidden` when attempting to edit or delete Manager A's insight.
-   - `adminCanUpdateAndDeleteAnyInsight`: Validates administrative oversight for updates and deletions.
-   - `nonPrivilegedRolesForbidden`: Validates that `SUPPORT_AGENT` and `STUDENT` receive `403 Forbidden` on all insight endpoints.
-   - `blankContentReturnsBadRequest`: Validates `@NotBlank` rejection with `400 Bad Request`.
-
-### 7.2. Full Test Suite Execution
-* **Maven Test Suite:**
-  ```text
-  [INFO] Results:
-  [INFO] Tests run: 96, Failures: 0, Errors: 0, Skipped: 0
-  [INFO] ------------------------------------------------------------------------
-  [INFO] BUILD SUCCESS
-  [INFO] ------------------------------------------------------------------------
-  ```
-  All 12 test classes (84 existing + 12 new) passed with 100% success.
-
-* **Frontend Build & Lint:**
-  - `npm run build`: Vite build completed in 5.54s with zero errors.
-  - `npm run lint`: oxlint completed with 0 errors.
-  - `git diff --check`: Clean, zero whitespace issues.
-
----
-
-## 8. Summary of Created and Modified Files
-
-| File Path | Status | Purpose |
-| :--- | :---: | :--- |
-| `BackEnd/.../model/AgentActivityAction.java` | **NEW** | Enum of 10 auditable operational actions |
-| `BackEnd/.../model/AgentActivityLog.java` | **NEW** | JPA entity for immutable activity log audit trail |
-| `BackEnd/.../dto/AgentActivityLogDTO.java` | **NEW** | DTO projection for activity log entries |
-| `BackEnd/.../repository/AgentActivityLogRepository.java` | **NEW** | Spring Data repository for activity logs |
-| `BackEnd/.../service/AgentActivityLogService.java` | **NEW** | Service managing activity logging and aggregations |
-| `BackEnd/.../model/AnalyticsInsight.java` | **NEW** | JPA entity for management strategic insights |
-| `BackEnd/.../dto/AnalyticsInsightDTO.java` | **NEW** | DTO projection for management insights |
-| `BackEnd/.../repository/AnalyticsInsightRepository.java` | **NEW** | Spring Data repository for insights |
-| `BackEnd/.../service/AnalyticsInsightService.java` | **NEW** | Service for insight CRUD, IDOR check, and validation |
-| `BackEnd/.../test/AgentActivityLogTest.java` | **NEW** | Automated test suite for activity logs and access control |
-| `BackEnd/.../test/AnalyticsInsightSecurityTest.java` | **NEW** | Automated test suite for insight CRUD, IDOR, and oversight |
-| `BackEnd/.../controller/AnalyticsController.java` | **MODIFIED** | Added activity log, summary, and insight CRUD endpoints |
-| `BackEnd/.../controller/TicketController.java` | **MODIFIED** | Injected activity logging for routing and comments |
-| `BackEnd/.../service/TicketService.java` | **MODIFIED** | Injected activity logging for claim, assign, status, reopen |
-| `BackEnd/.../service/TicketDeletionService.java` | **MODIFIED** | Cascades activity log deletion on hard ticket purge |
-| `BackEnd/.../service/AnalyticsService.java` | **MODIFIED** | Enriched CSV export with activity logs and insights |
-| `FrontEnd/.../components/AnalyticsDashboard.jsx` | **MODIFIED** | Added activity stream table, filters, insight feed & modal |
-| `report.md` | **UPDATED** | Authoritative engineering documentation for this phase |
+FrontEnd/
+├── src/
+│   ├── App.jsx                             (Role change modal for selecting technical dept, updated handlers)
+│   └── components/
+│       ├── AgentDashboard.jsx              (Technical dept filtering, clean metadata display)
+│       ├── CreateTicket.jsx                (Technical Department label & clean options, requester badge)
+│       ├── KnowledgeBase.jsx               (Category pills, badges, and modal aligned to IT/Maintenance/Security)
+│       ├── TicketDetails.jsx               (Standardized labels, permanent delete isolated to Admin Maintenance)
+│       └── TicketList.jsx                  (Removed ACCEPTED from status filter pills)
+```

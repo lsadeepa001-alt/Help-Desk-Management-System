@@ -48,10 +48,8 @@ export default function AgentDashboard({ onViewTicket }) {
 
   useEffect(() => { fetchTickets(); }, [fetchTickets]);
 
-  // Derived department list
-  const departments = ['ALL', ...new Set(
-    tickets.map(t => t.department || t.createdBy?.department).filter(Boolean)
-  )];
+  // Standard technical departments
+  const departments = ['ALL', 'IT', 'Maintenance', 'Security'];
 
   // Stats
   const stats = {
@@ -66,8 +64,8 @@ export default function AgentDashboard({ onViewTicket }) {
   const filtered = tickets.filter(t => {
     const matchStatus = filterStatus === 'ALL' || t.status === filterStatus;
     const matchPriority = filterPriority === 'ALL' || t.priority === filterPriority;
-    const dept = t.department || t.createdBy?.department || '';
-    const matchDept = filterDept === 'ALL' || dept === filterDept;
+    const dept = t.department || '';
+    const matchDept = filterDept === 'ALL' || dept.toLowerCase() === filterDept.toLowerCase();
     const q = search.toLowerCase();
     const matchSearch = !q ||
       (t.title?.toLowerCase().includes(q)) ||
@@ -186,7 +184,7 @@ export default function AgentDashboard({ onViewTicket }) {
           {departments.length > 1 && (
             <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
               className="bg-slate-700/60 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-              {departments.map(d => <option key={d} value={d}>{d === 'ALL' ? 'All Departments' : d}</option>)}
+              {departments.map(d => <option key={d} value={d}>{d === 'ALL' ? 'All Technical Departments' : d}</option>)}
             </select>
           )}
 
@@ -247,8 +245,11 @@ export default function AgentDashboard({ onViewTicket }) {
                     ) : (
                       <span className="text-amber-400 italic">Unassigned</span>
                     )}
-                    {(ticket.department || ticket.createdBy?.department) && (
-                      <span>🏢 {ticket.department || ticket.createdBy?.department}</span>
+                    {ticket.department && (
+                      <span>🏢 Dept: {ticket.department}</span>
+                    )}
+                    {ticket.createdBy?.department && (
+                      <span className="text-slate-400">🎓 Requester: {ticket.createdBy.department}</span>
                     )}
                     <span>📅 {fmt(ticket.createdAt)}</span>
                   </div>

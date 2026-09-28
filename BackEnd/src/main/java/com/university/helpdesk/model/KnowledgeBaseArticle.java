@@ -21,7 +21,7 @@ public class KnowledgeBaseArticle {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private KbCategory category = KbCategory.IT_SERVICES;
+    private KbCategory category = KbCategory.IT;
 
     @Column(length = 255)
     private String keywords;

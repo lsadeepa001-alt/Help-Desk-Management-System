@@ -125,7 +125,7 @@ const TicketList = ({ refreshTrigger, onViewTicket, filterUserId }) => {
 
           {/* Status Pills */}
           <div className="flex gap-1.5 overflow-x-auto pb-1 hide-scrollbar">
-            {['ALL', 'OPEN', 'ACCEPTED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED', 'CANCELLED', 'REJECTED'].map(st => (
+            {['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED', 'CANCELLED', 'REJECTED'].map(st => (
               <button key={st} onClick={() => setFilterStatus(st)}
                 className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap ${
                   filterStatus === st

@@ -288,7 +288,8 @@ public class TicketController {
     @PutMapping("/{id}/accept")
     @PreAuthorize("hasAuthority('ROLE_SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Ticket> acceptTicket(@PathVariable Long id, Authentication auth) {
-        return reviewTicket(id, auth, Status.ACCEPTED);
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "ACCEPTED status transition is deprecated. Tickets proceed directly from OPEN to IN_PROGRESS upon claim or assignment.");
     }
 
     @Deprecated

@@ -202,6 +202,10 @@ public class UserController {
                 user.setDepartment(normalizeTechnicalDepartment(dept));
             } else if (newRole == Role.KNOWLEDGE_MANAGER || newRole == Role.MANAGER_EXECUTIVE || newRole == Role.SYSTEM_ADMINISTRATOR) {
                 user.setDepartment(null);
+            } else if (newRole == Role.STUDENT || newRole == Role.LECTURER) {
+                if (body.containsKey("department")) {
+                    user.setDepartment(normalizeOptional(body.get("department")));
+                }
             }
             user.setRole(newRole);
             User updated = userRepository.save(user);

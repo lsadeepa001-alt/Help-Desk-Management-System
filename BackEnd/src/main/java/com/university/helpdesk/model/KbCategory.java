@@ -1,9 +1,14 @@
 package com.university.helpdesk.model;
 
 public enum KbCategory {
-    IT_SERVICES,
-    ACADEMIC_AFFAIRS,
+    IT,
     MAINTENANCE,
-    LIBRARY,
-    SECURITY
+    SECURITY,
+
+    @Deprecated
+    IT_SERVICES,
+    @Deprecated
+    ACADEMIC_AFFAIRS,
+    @Deprecated
+    LIBRARY
 }

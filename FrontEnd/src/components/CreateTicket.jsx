@@ -237,7 +237,7 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
           </p>
         </div>
         <span className="px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 rounded-full text-xs font-semibold">
-          {user.department || 'General'}
+          Requester: {user.department || 'General'}
         </span>
       </div>
 
@@ -297,7 +297,7 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-              Department <span className="text-rose-400">*</span>
+              Technical Department <span className="text-rose-400">*</span>
             </label>
             <select
               name="department"
@@ -306,9 +306,9 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
               className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm transition"
               required
             >
-              <option value="IT">💻 IT Services</option>
-              <option value="MAINTENANCE">🔧 Maintenance</option>
-              <option value="SECURITY">🛡️ Campus Security</option>
+              <option value="IT">IT</option>
+              <option value="MAINTENANCE">Maintenance</option>
+              <option value="SECURITY">Security</option>
             </select>
           </div>
 

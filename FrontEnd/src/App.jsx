@@ -279,6 +279,13 @@ function AdminUsersView() {
     phoneNumber: '',
   });
 
+  const [roleModal, setRoleModal] = useState({
+    isOpen: false,
+    user: null,
+    targetRole: '',
+    department: 'IT',
+  });
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
@@ -305,19 +312,36 @@ function AdminUsersView() {
     fetchResetRequests();
   }, [fetchResetRequests, fetchUsers]);
 
-  const handleRoleChange = async (userId, newRole) => {
-    const targetUser = users.find(u => u.id === userId);
-    const validDepts = ['it', 'maintenance', 'security'];
+  const handleRoleSelect = (targetUser, newRole) => {
+    if (newRole === targetUser.role) return;
     const isOperational = newRole === 'SUPPORT_AGENT' || newRole === 'TEAM_LEAD';
-    if (isOperational && (!targetUser?.department || !validDepts.includes(targetUser.department.toLowerCase()))) {
-      showToast(`Cannot change role to ${newRole}: User must have a valid technical department (IT, Maintenance, Security).`, 'error');
-      return;
+    if (isOperational) {
+      const validDepts = ['it', 'maintenance', 'security'];
+      const defaultDept = targetUser.department && validDepts.includes(targetUser.department.toLowerCase())
+        ? (targetUser.department.toUpperCase() === 'IT' ? 'IT' : targetUser.department.charAt(0).toUpperCase() + targetUser.department.slice(1).toLowerCase())
+        : 'IT';
+      setRoleModal({
+        isOpen: true,
+        user: targetUser,
+        targetRole: newRole,
+        department: defaultDept,
+      });
+    } else {
+      executeRoleChange(targetUser.id, newRole, null);
     }
+  };
+
+  const executeRoleChange = async (userId, newRole, department) => {
     setUpdatingId(userId);
     try {
-      await axios.put(`${API_BASE}/users/${userId}/role`, { role: newRole });
+      const payload = { role: newRole };
+      if (department) {
+        payload.department = department;
+      }
+      const res = await axios.put(`${API_BASE}/users/${userId}/role`, payload);
       showToast('User role updated successfully!', 'success');
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole, department: isOperational ? u.department : (newRole === 'STUDENT' || newRole === 'LECTURER' ? u.department : null) } : u));
+      setUsers(prev => prev.map(u => u.id === userId ? res.data : u));
+      setRoleModal({ isOpen: false, user: null, targetRole: '', department: 'IT' });
     } catch (err) {
       showToast('Failed to update role: ' + (err.response?.data?.message || err.message), 'error');
     } finally {
@@ -499,7 +523,7 @@ function AdminUsersView() {
                       <select
                         value={u.role}
                         disabled={updatingId === u.id || u.id === user?.id}
-                        onChange={e => handleRoleChange(u.id, e.target.value)}
+                        onChange={e => handleRoleSelect(u, e.target.value)}
                         className="bg-slate-900 border border-slate-700 text-xs rounded-lg px-2.5 py-1 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
                       >
                         <option value="STUDENT">🎓 STUDENT</option>
@@ -735,6 +759,67 @@ function AdminUsersView() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Role Change Technical Department Modal */}
+      {roleModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white">Assign Technical Department</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Promoting <span className="text-indigo-300 font-semibold">{roleModal.user?.fullName}</span> to {roleModal.targetRole === 'SUPPORT_AGENT' ? 'Support Agent' : 'Team Lead'}
+                </p>
+              </div>
+              <button
+                onClick={() => setRoleModal(prev => ({ ...prev, isOpen: false }))}
+                className="text-slate-400 hover:text-white transition text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Operational staff (<span className="text-amber-300">Support Agent</span> and <span className="text-amber-300">Team Lead</span>) must be assigned to an approved Technical Department:
+              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Technical Department *
+                </label>
+                <select
+                  value={roleModal.department}
+                  onChange={e => setRoleModal(prev => ({ ...prev, department: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                >
+                  <option value="IT">IT</option>
+                  <option value="Maintenance">Maintenance</option>
+                  <option value="Security">Security</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRoleModal(prev => ({ ...prev, isOpen: false }))}
+                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={updatingId === roleModal.user?.id}
+                  onClick={() => executeRoleChange(roleModal.user?.id, roleModal.targetRole, roleModal.department)}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition shadow-lg shadow-indigo-500/20"
+                >
+                  {updatingId === roleModal.user?.id ? 'Saving...' : 'Confirm Role Change'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
