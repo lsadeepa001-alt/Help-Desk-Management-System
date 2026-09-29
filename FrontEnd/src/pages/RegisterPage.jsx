@@ -2,16 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth, getLandingPath } from '../context/AuthContext';
 
-const DEPARTMENTS = [
-  'Computing',
-  'Engineering',
-  'Business',
-  'IT Services',
-  'Administration',
-  'Science',
-  'Arts & Humanities',
-];
-
 // ── Static SVG Icons (Defined outside to prevent recreating on every render) ──
 const UserIcon = (
   <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,12 +24,6 @@ const LockIcon = (
 const PhoneIcon = (
   <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-  </svg>
-);
-
-const BuildingIcon = (
-  <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
   </svg>
 );
 
@@ -109,7 +93,6 @@ const RegisterPage = () => {
     fullName: '',
     username: '',
     email: '',
-    department: '',
     phoneNumber: '',
     password: '',
     confirmPassword: '',
@@ -134,7 +117,7 @@ const RegisterPage = () => {
     { label: 'One uppercase letter (A-Z)', met: /[A-Z]/.test(formData.password) },
     { label: 'One lowercase letter (a-z)', met: /[a-z]/.test(formData.password) },
     { label: 'One number (0-9)', met: /\d/.test(formData.password) },
-    { label: 'One special character (@$!%*?&#^()_-)', met: /[@$!%*?&#^()_\-]/.test(formData.password) },
+    { label: 'One special character (@$!%*?&#^()_-)', met: /[@$!%*?&#^()_-]/.test(formData.password) },
   ];
   const isPasswordStrong = passwordRules.every((r) => r.met);
 
@@ -179,8 +162,7 @@ const RegisterPage = () => {
       email: formData.email.trim(),
       password: formData.password,
       role: formData.role,
-      department: formData.department,
-      phoneNumber: formData.phoneNumber,
+      phoneNumber: formData.phoneNumber?.trim() || null,
     };
 
     try {
@@ -291,40 +273,17 @@ const RegisterPage = () => {
               autoComplete="email"
             />
 
-            {/* Row 3: Department + Phone */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                  Department / Faculty
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    {BuildingIcon}
-                  </div>
-                  <select
-                    name="department"
-                    value={formData.department}
-                    onChange={handleChange}
-                    className="w-full bg-slate-900/90 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 text-sm transition appearance-none"
-                  >
-                    <option value="">— Select —</option>
-                    {DEPARTMENTS.map((dept) => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <InputField
-                label="Phone Number"
-                name="phoneNumber"
-                type="tel"
-                value={formData.phoneNumber}
-                onChange={handleChange}
-                placeholder="+94-77-123-4567"
-                icon={PhoneIcon}
-                autoComplete="tel"
-              />
-            </div>
+            {/* Row 3: Phone Number */}
+            <InputField
+              label="Phone Number"
+              name="phoneNumber"
+              type="tel"
+              value={formData.phoneNumber}
+              onChange={handleChange}
+              placeholder="+94-77-123-4567 (Optional)"
+              icon={PhoneIcon}
+              autoComplete="tel"
+            />
 
             {/* Row 4: Password + Confirm */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

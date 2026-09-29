@@ -1,11 +1,13 @@
 package com.university.helpdesk.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.university.helpdesk.model.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class RegisterRequest {
     @NotBlank(message = "Username is required")
     @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
@@ -27,21 +29,17 @@ public class RegisterRequest {
 
     private Role role;
 
-    @Size(max = 100, message = "Department must not exceed 100 characters")
-    private String department;
-
     @Size(max = 20, message = "Phone number must not exceed 20 characters")
     private String phoneNumber;
 
     public RegisterRequest() {}
 
-    public RegisterRequest(String username, String password, String email, String fullName, Role role, String department, String phoneNumber) {
+    public RegisterRequest(String username, String password, String email, String fullName, Role role, String phoneNumber) {
         this.username = username;
         this.password = password;
         this.email = email;
         this.fullName = fullName;
         this.role = role;
-        this.department = department;
         this.phoneNumber = phoneNumber;
     }
 
@@ -59,9 +57,6 @@ public class RegisterRequest {
 
     public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }
-
-    public String getDepartment() { return department; }
-    public void setDepartment(String department) { this.department = department; }
 
     public String getPhoneNumber() { return phoneNumber; }
     public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }

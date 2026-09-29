@@ -5,6 +5,8 @@ import com.university.helpdesk.model.User;
 import com.university.helpdesk.model.Category;
 import com.university.helpdesk.repository.CategoryRepository;
 import com.university.helpdesk.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
@@ -17,6 +19,8 @@ import java.util.List;
 @Component
 @Order(1)
 public class DataSeeder implements CommandLineRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);
 
     private static final String STRONG_PASSWORD_PATTERN =
             "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#^()_\\-]).{8,}$";
@@ -50,6 +54,7 @@ public class DataSeeder implements CommandLineRunner {
 
     private void seedBootstrapAdministrator() {
         if (userRepository.existsByRole(Role.SYSTEM_ADMINISTRATOR)) {
+            log.info("System Administrator already exists; bootstrap credentials were not applied.");
             return;
         }
 

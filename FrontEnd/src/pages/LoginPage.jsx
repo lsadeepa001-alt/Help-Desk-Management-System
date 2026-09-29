@@ -30,7 +30,7 @@ const LoginPage = () => {
     setLoading(true);
     setError('');
 
-    const result = await login(formData.usernameOrEmail, formData.password);
+    const result = await login(formData.usernameOrEmail.trim(), formData.password);
     setLoading(false);
 
     if (result.success) {

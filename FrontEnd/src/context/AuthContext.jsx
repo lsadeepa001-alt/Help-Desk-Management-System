@@ -119,8 +119,9 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (usernameOrEmail, password) => {
     try {
+      const trimmedIdentifier = typeof usernameOrEmail === 'string' ? usernameOrEmail.trim() : usernameOrEmail;
       const response = await axios.post(`${API_BASE_URL}/auth/login`, {
-        usernameOrEmail,
+        usernameOrEmail: trimmedIdentifier,
         password,
       });
 
@@ -136,7 +137,7 @@ export const AuthProvider = ({ children }) => {
       return { success: true, data: userData };
     } catch (err) {
       console.error('Login failed:', err);
-      const message = err.response?.data?.message || 'Invalid credentials. Please try again.';
+      const message = err.response?.data?.message || 'Invalid username or password';
       return { success: false, error: message };
     }
   };
@@ -156,7 +157,19 @@ export const AuthProvider = ({ children }) => {
       return { success: true, data: userData };
     } catch (err) {
       console.error('Registration failed:', err);
-      const message = err.response?.data?.message || 'Registration failed. Please check your inputs.';
+      const data = err.response?.data;
+      let message = 'Registration failed. Please check your inputs.';
+      if (data?.fieldErrors && typeof data.fieldErrors === 'object') {
+        const firstField = Object.values(data.fieldErrors)[0];
+        if (firstField) message = firstField;
+      } else if (data?.errors && typeof data.errors === 'object') {
+        const firstError = Object.values(data.errors)[0];
+        if (firstError) message = firstError;
+      } else if (data?.message && typeof data.message === 'string' && data.message !== 'Validation failed') {
+        message = data.message;
+      } else if (data?.message) {
+        message = data.message;
+      }
       return { success: false, error: message };
     }
   };

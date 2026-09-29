@@ -54,18 +54,18 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
         if (registerRequest.getUsername() == null || registerRequest.getUsername().trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Error: Username is required!"));
+            return ResponseEntity.badRequest().body(Map.of("message", "Username is required"));
         }
 
         String username = registerRequest.getUsername().trim();
         String email = registerRequest.getEmail().trim();
 
         if (userRepository.findByUsername(username).isPresent()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Error: Username is already taken!"));
+            return ResponseEntity.badRequest().body(Map.of("message", "Username is already taken."));
         }
 
         if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Error: Email is already in use!"));
+            return ResponseEntity.badRequest().body(Map.of("message", "Email is already in use."));
         }
 
         Role userRole = registerRequest.getRole() != null ? registerRequest.getRole() : Role.STUDENT;
@@ -82,7 +82,7 @@ public class AuthController {
         user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
         user.setFullName(registerRequest.getFullName().trim());
         user.setRole(userRole);
-        user.setDepartment(normalizeOptional(registerRequest.getDepartment()));
+        user.setDepartment(null);
         user.setPhoneNumber(normalizeOptional(registerRequest.getPhoneNumber()));
         user.setStatus("ACTIVE");
 
@@ -105,9 +105,19 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
-        User user = userRepository.findByUsername(loginRequest.getUsernameOrEmail())
-                .orElseGet(() -> userRepository.findByEmail(loginRequest.getUsernameOrEmail())
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password")));
+        String identifier = loginRequest.getUsernameOrEmail() != null ? loginRequest.getUsernameOrEmail().trim() : "";
+        if (identifier.isEmpty() || loginRequest.getPassword() == null || loginRequest.getPassword().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Invalid username or password"));
+        }
+
+        User user = userRepository.findByUsername(identifier)
+                .orElseGet(() -> userRepository.findByEmailIgnoreCase(identifier).orElse(null));
+
+        if (user == null || !"ACTIVE".equalsIgnoreCase(user.getStatus())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Invalid username or password"));
+        }
 
         Authentication authentication;
         try {

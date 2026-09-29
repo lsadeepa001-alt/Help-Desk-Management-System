@@ -16,15 +16,16 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<?> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new HashMap<>();
+        Map<String, String> fieldErrors = new HashMap<>();
         for (FieldError error : ex.getBindingResult().getFieldErrors()) {
-            errors.put(error.getField(), error.getDefaultMessage());
+            fieldErrors.put(error.getField(), error.getDefaultMessage());
         }
-        String firstMessage = errors.values().stream().findFirst().orElse("Validation failed");
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-                "message", firstMessage,
-                "errors", errors
-        ));
+        String firstMessage = fieldErrors.values().stream().findFirst().orElse("Validation failed");
+        Map<String, Object> body = new HashMap<>();
+        body.put("message", firstMessage != null ? firstMessage : "Validation failed");
+        body.put("fieldErrors", fieldErrors);
+        body.put("errors", fieldErrors);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
     @ExceptionHandler(ResponseStatusException.class)
