@@ -4,7 +4,7 @@ import axios from 'axios';
 import { AuthProvider, useAuth, ROLES } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { ProtectedRoute, RoleBasedRoute, GuestOnlyRoute } from './components/ProtectedRoute';
-import { Ticket, Plus, Search, X, Users } from 'lucide-react';
+import { Ticket, Plus, Search, X, Users, Edit2 } from 'lucide-react';
 import ConfirmDialog from './components/ui/ConfirmDialog';
 import Button from './components/ui/Button';
 
@@ -207,7 +207,7 @@ function MyTicketsView() {
   );
 }
 
-// ── Ticket details page wrapper ──
+// Ticket details page wrapper
 function TicketDetailsWrapper() {
   const navigate = useNavigate();
   const { ticketId } = useParams();
@@ -220,7 +220,7 @@ function TicketDetailsWrapper() {
   );
 }
 
-// ── Admin Users & Role Management View ──
+// Admin Users and Role Management View
 function AdminUsersView() {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -237,12 +237,26 @@ function AdminUsersView() {
   ];
 
   const [search, setSearch] = useState('');
-  const [updatingId, setUpdatingId] = useState(null);
-  const [resetRequests, setResetRequests] = useState([]);
-  const [issuedCredential, setIssuedCredential] = useState(null);
-  const [issuingRequestId, setIssuingRequestId] = useState(null);
+  const [userToEditConfirm, setUserToEditConfirm] = useState(null);
+  const [editModal, setEditModal] = useState({
+    isOpen: false,
+    user: null,
+    formData: {
+      fullName: '',
+      username: '',
+      email: '',
+      phoneNumber: '',
+      role: 'SUPPORT_AGENT',
+      status: 'ACTIVE',
+      department: 'IT',
+    },
+    saving: false,
+    error: '',
+  });
+
   const [userToDelete, setUserToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [statusLoadingId, setStatusLoadingId] = useState(null);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
@@ -254,13 +268,6 @@ function AdminUsersView() {
     role: 'SUPPORT_AGENT',
     department: '',
     phoneNumber: '',
-  });
-
-  const [roleModal, setRoleModal] = useState({
-    isOpen: false,
-    user: null,
-    targetRole: '',
-    department: 'IT',
   });
 
   const fetchUsers = useCallback(async () => {
@@ -275,64 +282,78 @@ function AdminUsersView() {
     }
   }, [showToast]);
 
-  const fetchResetRequests = useCallback(async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/users/password-reset-requests`);
-      setResetRequests(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      showToast('Failed to load password reset requests: ' + (err.response?.data?.message || err.message), 'error');
-    }
-  }, [showToast]);
-
   useEffect(() => {
     fetchUsers();
-    fetchResetRequests();
-  }, [fetchResetRequests, fetchUsers]);
+  }, [fetchUsers]);
 
-  const handleRoleSelect = (targetUser, newRole) => {
-    if (newRole === targetUser.role) return;
-    const isOperational = newRole === 'SUPPORT_AGENT' || newRole === 'TEAM_LEAD';
-    if (isOperational) {
-      const validDepts = ['it', 'maintenance', 'security'];
-      const defaultDept = targetUser.department && validDepts.includes(targetUser.department.toLowerCase())
-        ? (targetUser.department.toUpperCase() === 'IT' ? 'IT' : targetUser.department.charAt(0).toUpperCase() + targetUser.department.slice(1).toLowerCase())
-        : 'IT';
-      setRoleModal({
-        isOpen: true,
-        user: targetUser,
-        targetRole: newRole,
-        department: defaultDept,
-      });
-    } else {
-      executeRoleChange(targetUser.id, newRole, null);
-    }
+  const handleOpenEditConfirm = (targetUser) => {
+    setUserToEditConfirm(targetUser);
   };
 
-  const executeRoleChange = async (userId, newRole, department) => {
-    setUpdatingId(userId);
+  const handleProceedToEdit = () => {
+    const target = userToEditConfirm;
+    if (!target) return;
+    setUserToEditConfirm(null);
+
+    const isOp = target.role === 'SUPPORT_AGENT' || target.role === 'TEAM_LEAD';
+    setEditModal({
+      isOpen: true,
+      user: target,
+      formData: {
+        fullName: target.fullName || '',
+        username: target.username || '',
+        email: target.email || '',
+        phoneNumber: target.phoneNumber || '',
+        role: target.role || 'STUDENT',
+        status: target.status || 'ACTIVE',
+        department: isOp ? (target.department || 'IT') : '',
+      },
+      saving: false,
+      error: '',
+    });
+  };
+
+  const handleSaveEditUser = async (e) => {
+    e.preventDefault();
+    const { user: target, formData } = editModal;
+    if (!target) return;
+
+    setEditModal(prev => ({ ...prev, saving: true, error: '' }));
     try {
-      const payload = { role: newRole };
-      if (department) {
-        payload.department = department;
-      }
-      const res = await axios.put(`${API_BASE}/users/${userId}/role`, payload);
-      showToast('User role updated successfully.', 'success');
-      setUsers(prev => prev.map(u => u.id === userId ? res.data : u));
-      setRoleModal({ isOpen: false, user: null, targetRole: '', department: 'IT' });
+      const payload = {
+        fullName: formData.fullName.trim(),
+        username: formData.username.trim(),
+        email: formData.email.trim(),
+        phoneNumber: formData.phoneNumber ? formData.phoneNumber.trim() : null,
+        role: formData.role,
+        status: formData.status,
+        department: (formData.role === 'SUPPORT_AGENT' || formData.role === 'TEAM_LEAD')
+          ? (formData.department || 'IT')
+          : null,
+      };
+
+      const res = await axios.put(`${API_BASE}/users/${target.id}`, payload);
+      showToast('User account updated successfully.', 'success');
+      setUsers(prev => prev.map(u => u.id === target.id ? res.data : u));
+      setEditModal(prev => ({ ...prev, isOpen: false, user: null }));
     } catch (err) {
-      showToast('Failed to update role: ' + (err.response?.data?.message || err.message), 'error');
+      const msg = err.response?.data?.message || err.message || 'Failed to update user';
+      setEditModal(prev => ({ ...prev, error: msg }));
     } finally {
-      setUpdatingId(null);
+      setEditModal(prev => ({ ...prev, saving: false }));
     }
   };
 
   const handleToggleStatus = async (userId) => {
+    setStatusLoadingId(userId);
     try {
       const res = await axios.put(`${API_BASE}/users/${userId}/status`);
       showToast(`User status updated to ${res.data.status}.`, 'success');
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: res.data.status } : u));
     } catch (err) {
       showToast('Failed to update status: ' + (err.response?.data?.message || err.message), 'error');
+    } finally {
+      setStatusLoadingId(null);
     }
   };
 
@@ -348,19 +369,6 @@ function AdminUsersView() {
       showToast('Failed to delete user: ' + (err.response?.data?.message || err.message), 'error');
     } finally {
       setDeleteLoading(false);
-    }
-  };
-
-  const handleIssueResetCredential = async (requestId) => {
-    setIssuingRequestId(requestId);
-    try {
-      const res = await axios.post(`${API_BASE}/users/password-reset-requests/${requestId}/issue`);
-      setIssuedCredential(res.data);
-      await fetchResetRequests();
-    } catch (err) {
-      showToast(err.response?.data?.message || 'Unable to issue a reset credential.', 'error');
-    } finally {
-      setIssuingRequestId(null);
     }
   };
 
@@ -435,44 +443,6 @@ function AdminUsersView() {
         </div>
       </div>
 
-      {/* Pending administrator-assisted password resets */}
-      <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl overflow-hidden shadow-xl">
-        <div className="px-6 py-4 border-b border-slate-700/60 flex items-center justify-between gap-4">
-          <div>
-            <h3 className="font-bold text-white">Pending Password Resets</h3>
-            <p className="text-xs text-slate-400 mt-1">Issue a short-lived one-time credential, then hand it directly to the verified user.</p>
-          </div>
-          <span className="text-xs font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-3 py-1">
-            {resetRequests.length} pending
-          </span>
-        </div>
-        {resetRequests.length === 0 ? (
-          <div className="px-6 py-8 text-center text-sm text-slate-400">No pending password reset requests.</div>
-        ) : (
-          <div className="divide-y divide-slate-700/40">
-            {resetRequests.map(request => (
-              <div key={request.requestId} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <div className="font-semibold text-white">{request.username}</div>
-                  <div className="text-xs text-slate-400">{request.email}</div>
-                  <div className="text-[11px] text-slate-500 mt-1">
-                    Requested {new Date(request.requestedAt).toLocaleString()}
-                    {request.issuedAt && ` • ${request.expired ? 'Previous credential expired' : 'Credential already issued'}`}
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleIssueResetCredential(request.requestId)}
-                  disabled={issuingRequestId === request.requestId}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition"
-                >
-                  {issuingRequestId === request.requestId ? 'Issuing...' : request.issuedAt ? 'Reissue Credential' : 'Issue Credential'}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* Users Table */}
       <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl overflow-hidden shadow-xl">
         {loading ? (
@@ -486,8 +456,8 @@ function AdminUsersView() {
                 <tr>
                   <th className="px-6 py-4">User</th>
                   <th className="px-6 py-4">Email</th>
-                  <th className="px-6 py-4">Department</th>
                   <th className="px-6 py-4">Role</th>
+                  <th className="px-6 py-4">Department</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -500,48 +470,60 @@ function AdminUsersView() {
                       <div className="text-xs text-slate-500 font-mono">@{u.username}</div>
                     </td>
                     <td className="px-6 py-4 text-xs font-mono">{u.email}</td>
-                    <td className="px-6 py-4 text-xs">{u.department || '—'}</td>
-                    <td className="px-6 py-4">
-                      <select
-                        value={u.role}
-                        disabled={updatingId === u.id || u.id === user?.id}
-                        onChange={e => handleRoleSelect(u, e.target.value)}
-                        className="bg-slate-900 border border-slate-700 text-xs rounded-lg px-2.5 py-1 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                      >
-                        {ROLE_OPTIONS.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
+                    <td className="px-6 py-4 text-xs">
+                      <span className="font-medium text-slate-200">
+                        {ROLE_OPTIONS.find(r => r.value === u.role)?.label || u.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-xs">
+                      {u.department ? (
+                        <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-semibold">
+                          {u.department}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                          (u.status || 'ACTIVE') === 'ACTIVE'
-                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                            : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-                        }`}>
-                          {u.status || 'ACTIVE'}
-                        </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        (u.status || 'ACTIVE') === 'ACTIVE'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                          : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                      }`}>
+                        {u.status || 'ACTIVE'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleOpenEditConfirm(u)}
+                          className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 transition flex items-center gap-1.5"
+                          title="Edit User Details"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+
                         {u.id !== user?.id && (
                           <button
                             onClick={() => handleToggleStatus(u.id)}
-                            className="text-[10px] text-slate-400 hover:text-white px-2 py-0.5 rounded border border-slate-700 hover:border-slate-500 transition"
+                            disabled={statusLoadingId === u.id}
+                            className="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded-lg border border-slate-700 hover:border-slate-500 transition"
                           >
                             {(u.status || 'ACTIVE') === 'ACTIVE' ? 'Suspend' : 'Activate'}
                           </button>
                         )}
+
+                        {u.id !== user?.id && (
+                          <button
+                            onClick={() => setUserToDelete(u)}
+                            className="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 px-2.5 py-1 rounded-lg transition"
+                            title="Delete User"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {u.id !== user?.id && (
-                        <button
-                          onClick={() => setUserToDelete(u)}
-                          className="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 px-2.5 py-1 rounded-lg transition"
-                          title="Delete User"
-                        >
-                          Delete
-                        </button>
-                      )}
                     </td>
                   </tr>
                 ))}
@@ -551,44 +533,197 @@ function AdminUsersView() {
         )}
       </div>
 
-      {issuedCredential && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-          <div className="w-full max-w-lg bg-slate-900 border border-blue-500/40 rounded-3xl p-6 shadow-2xl space-y-5">
-            <div>
-              <h3 className="text-lg font-bold text-white">One-Time Reset Credential</h3>
-              <p className="text-xs text-amber-300 mt-1">Copy this now. The raw credential is not stored and will not be displayed again.</p>
-            </div>
-            <div className="space-y-2">
-              <div className="text-xs text-slate-400">User: <span className="text-slate-200 font-semibold">{issuedCredential.username}</span></div>
-              <input
-                readOnly
-                value={issuedCredential.resetToken}
-                onFocus={event => event.target.select()}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm font-mono text-slate-100"
-              />
-              <div className="text-xs text-slate-400">Expires {new Date(issuedCredential.expiresAt).toLocaleString()}</div>
-            </div>
-            <div className="flex justify-end gap-3">
+      {/* Confirmation Dialog before entering administrative edit mode */}
+      <ConfirmDialog
+        isOpen={!!userToEditConfirm}
+        onClose={() => setUserToEditConfirm(null)}
+        onConfirm={handleProceedToEdit}
+        title="Edit account details?"
+        message={`You are entering administrative edit mode for ${userToEditConfirm?.fullName}. Changes to identity, role, account status, or technical department may affect this user's access to UniAssist360.`}
+        confirmText="Continue to Edit"
+        cancelText="Cancel"
+      />
+
+      {/* Administrative User Edit Modal */}
+      {editModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in fade-in duration-150 my-8">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Edit2 className="w-4 h-4 text-blue-400" />
+                  <span>Edit User Details</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Administrative update for <span className="text-blue-300 font-semibold">{editModal.user?.fullName}</span>
+                </p>
+              </div>
               <button
-                onClick={() => navigator.clipboard.writeText(issuedCredential.resetToken)}
-                className="px-4 py-2 border border-slate-600 hover:border-slate-500 text-slate-200 text-sm font-semibold rounded-xl transition"
+                type="button"
+                onClick={() => setEditModal(prev => ({ ...prev, isOpen: false }))}
+                aria-label="Close dialog"
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
               >
-                Copy
-              </button>
-              <button
-                onClick={() => setIssuedCredential(null)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition"
-              >
-                I Have Saved It
+                <X className="w-4 h-4" />
               </button>
             </div>
+
+            {editModal.error && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium rounded-xl">
+                {editModal.error}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEditUser} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editModal.formData.fullName}
+                    onChange={e => setEditModal(prev => ({ ...prev, formData: { ...prev.formData, fullName: e.target.value } }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Username *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editModal.formData.username}
+                    onChange={e => setEditModal(prev => ({ ...prev, formData: { ...prev.formData, username: e.target.value } }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={editModal.formData.email}
+                    onChange={e => setEditModal(prev => ({ ...prev, formData: { ...prev.formData, email: e.target.value } }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={editModal.formData.phoneNumber}
+                    onChange={e => setEditModal(prev => ({ ...prev, formData: { ...prev.formData, phoneNumber: e.target.value } }))}
+                    placeholder="+94-77-123-4567"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Access Role *
+                  </label>
+                  <select
+                    value={editModal.formData.role}
+                    disabled={editModal.user?.id === user?.id}
+                    onChange={e => {
+                      const newRole = e.target.value;
+                      const isOp = newRole === 'SUPPORT_AGENT' || newRole === 'TEAM_LEAD';
+                      setEditModal(prev => ({
+                        ...prev,
+                        formData: {
+                          ...prev.formData,
+                          role: newRole,
+                          department: isOp ? (prev.formData.department || 'IT') : '',
+                        }
+                      }));
+                    }}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
+                  >
+                    {ROLE_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Account Status *
+                  </label>
+                  <select
+                    value={editModal.formData.status}
+                    disabled={editModal.user?.id === user?.id}
+                    onChange={e => setEditModal(prev => ({ ...prev, formData: { ...prev.formData, status: e.target.value } }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="SUSPENDED">Suspended</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Technical Department appears ONLY when role is SUPPORT_AGENT or TEAM_LEAD */}
+              {(editModal.formData.role === 'SUPPORT_AGENT' || editModal.formData.role === 'TEAM_LEAD') && (
+                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1.5">
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                    Technical Department *
+                  </label>
+                  <select
+                    value={editModal.formData.department}
+                    required
+                    onChange={e => setEditModal(prev => ({ ...prev, formData: { ...prev.formData, department: e.target.value } }))}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  >
+                    <option value="IT">IT</option>
+                    <option value="Maintenance">Maintenance</option>
+                    <option value="Security">Security</option>
+                  </select>
+                  <p className="text-[11px] text-slate-400">
+                    Operational staff must belong strictly to IT, Maintenance, or Security.
+                  </p>
+                </div>
+              )}
+
+              {editModal.user?.id === user?.id && (
+                <p className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
+                  Note: You are editing your own administrator account. Role and status demotion are restricted.
+                </p>
+              )}
+
+              <div className="flex gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditModal(prev => ({ ...prev, isOpen: false }))}
+                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editModal.saving}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition shadow-md"
+                >
+                  {editModal.saving ? 'Saving Changes...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-5 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-5 animate-in fade-in duration-200 my-8">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Users className="w-4 h-4 text-blue-400" />
@@ -735,68 +870,6 @@ function AdminUsersView() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {roleModal.isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div>
-                <h3 className="text-base font-bold text-white">Assign Technical Department</h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Promoting <span className="text-blue-300 font-semibold">{roleModal.user?.fullName}</span> to {roleModal.targetRole === 'SUPPORT_AGENT' ? 'Support Agent' : 'Team Lead'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setRoleModal(prev => ({ ...prev, isOpen: false }))}
-                aria-label="Close dialog"
-                className="text-slate-400 hover:text-white transition p-1 rounded-lg hover:bg-slate-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Operational staff (<span className="text-amber-300">Support Agent</span> and <span className="text-amber-300">Team Lead</span>) must be assigned to an approved Technical Department:
-              </p>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Technical Department *
-                </label>
-                <select
-                  value={roleModal.department}
-                  onChange={e => setRoleModal(prev => ({ ...prev, department: e.target.value }))}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                >
-                  <option value="IT">IT</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Security">Security</option>
-                </select>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setRoleModal(prev => ({ ...prev, isOpen: false }))}
-                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={updatingId === roleModal.user?.id}
-                  onClick={() => executeRoleChange(roleModal.user?.id, roleModal.targetRole, roleModal.department)}
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition shadow-md"
-                >
-                  {updatingId === roleModal.user?.id ? 'Saving...' : 'Confirm Role Change'}
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}

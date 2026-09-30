@@ -95,55 +95,6 @@ public class PasswordResetService {
         });
     }
 
-    @Transactional(readOnly = true)
-    public List<PendingResetRequest> getPendingRequests() {
-        LocalDateTime now = LocalDateTime.now();
-        return tokenRepository.findByUsedAtIsNullOrderByCreatedAtAsc().stream()
-                .filter(token -> "ACTIVE".equalsIgnoreCase(token.getUser().getStatus()))
-                .map(token -> new PendingResetRequest(
-                        token.getId(),
-                        token.getUser().getId(),
-                        token.getUser().getUsername(),
-                        token.getUser().getEmail(),
-                        token.getCreatedAt(),
-                        token.getIssuedAt(),
-                        token.getExpiresAt(),
-                        token.getExpiresAt() != null && !token.getExpiresAt().isAfter(now)
-                ))
-                .toList();
-    }
-
-    @Transactional
-    public IssuedResetCredential issueCredential(Long requestId) {
-        PasswordResetToken request = tokenRepository.findById(requestId)
-                .filter(token -> token.getUsedAt() == null)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Pending password reset request not found"));
-
-        if (!"ACTIVE".equalsIgnoreCase(request.getUser().getStatus())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Password reset credentials can only be issued for active accounts");
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        byte[] randomBytes = new byte[32];
-        secureRandom.nextBytes(randomBytes);
-        String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
-        LocalDateTime expiresAt = now.plusMinutes(expirationMinutes);
-
-        request.setTokenHash(hashToken(rawToken));
-        request.setIssuedAt(now);
-        request.setExpiresAt(expiresAt);
-        tokenRepository.save(request);
-
-        return new IssuedResetCredential(
-                request.getId(),
-                request.getUser().getUsername(),
-                rawToken,
-                expiresAt
-        );
-    }
-
     @Transactional
     public void resetPassword(String rawToken, String newPassword) {
         PasswordResetToken token = tokenRepository.findActiveByTokenHashForUpdate(hashToken(rawToken.trim()))
@@ -174,18 +125,4 @@ public class PasswordResetService {
             throw new IllegalStateException("SHA-256 is not available", e);
         }
     }
-
-    public record PendingResetRequest(Long requestId,
-                                      Long userId,
-                                      String username,
-                                      String email,
-                                      LocalDateTime requestedAt,
-                                      LocalDateTime issuedAt,
-                                      LocalDateTime expiresAt,
-                                      boolean expired) {}
-
-    public record IssuedResetCredential(Long requestId,
-                                        String username,
-                                        String resetToken,
-                                        LocalDateTime expiresAt) {}
 }

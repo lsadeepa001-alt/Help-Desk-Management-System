@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   Lock,
   Plus,
-  Bot,
+  MessageCircle,
   CheckCircle2,
   AlertCircle,
   Paperclip,
@@ -64,6 +64,36 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
   const [message, setMessage] = useState({ type: '', text: '' });
 
   const activeCategories = DEPARTMENT_CATEGORIES[formData.department] || DEPARTMENT_CATEGORIES.IT;
+  const currentCategory = activeCategories.find((c) => String(c.id) === String(formData.categoryId));
+  const categoryName = currentCategory ? currentCategory.name : '';
+
+  const shouldShowLocation = (department, catName) => {
+    const dept = (department || '').toUpperCase();
+    const name = (catName || '').toLowerCase();
+
+    // Digital/account IT categories do not have physical location
+    if (dept === 'IT') {
+      if (
+        name.includes('account') ||
+        name.includes('lms') ||
+        name.includes('student portal') ||
+        name.includes('software') ||
+        name.includes('licensing')
+      ) {
+        return false;
+      }
+      return true;
+    }
+
+    // Physical maintenance and campus security always involve physical locations
+    if (dept === 'MAINTENANCE' || dept === 'SECURITY') {
+      return true;
+    }
+
+    return true;
+  };
+
+  const isLocationVisible = shouldShowLocation(formData.department, categoryName);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -139,7 +169,7 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
       department: formData.department,
       priority: formData.priority,
       status: 'OPEN',
-      location: formData.location || 'Campus Main Building',
+      location: isLocationVisible && formData.location?.trim() ? formData.location.trim() : null,
       category: { id: parseInt(formData.categoryId) },
       createdBy: { id: user.id },
     };
@@ -254,7 +284,7 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
 
       {prefillData && (
         <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium rounded-xl flex items-center gap-2">
-          <Bot className="w-4 h-4 text-blue-400 shrink-0" />
+          <MessageCircle className="w-4 h-4 text-blue-400 shrink-0" />
           <span>Form pre-filled from UniAssist 360 Support Assistant conversation.</span>
         </div>
       )}
@@ -363,20 +393,22 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
           </div>
         </div>
 
-        {/* Location Row */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-            Location / Room
-          </label>
-          <input
-            type="text"
-            name="location"
-            value={formData.location}
-            onChange={handleChange}
-            placeholder="e.g. Main Library 2nd Floor, Lab 03"
-            className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm transition"
-          />
-        </div>
+        {/* Location Row (Conditional based on Department & Category) */}
+        {isLocationVisible && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              Location / Room <span className="text-slate-500 font-normal">(Optional)</span>
+            </label>
+            <input
+              type="text"
+              name="location"
+              value={formData.location}
+              onChange={handleChange}
+              placeholder="e.g. Main Library 2nd Floor, Lab 03, Block B"
+              className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm transition"
+            />
+          </div>
+        )}
 
         {/* Attachments Section */}
         <div className="space-y-2">

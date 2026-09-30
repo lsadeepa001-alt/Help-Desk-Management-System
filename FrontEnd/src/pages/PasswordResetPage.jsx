@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   AlertCircle,
   ShieldCheck,
+  ArrowLeft,
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -296,13 +297,24 @@ export default function PasswordResetPage() {
               </form>
             </div>
 
-            {/* Back to Sign In Link */}
-            <p className="text-center text-xs text-slate-400 pt-1">
-              Remember your password?{' '}
-              <Link to="/login" className="text-blue-400 font-semibold hover:text-blue-300 transition">
-                Return to sign in
-              </Link>
-            </p>
+            {/* Back to Sign In & Back to Home Links */}
+            <div className="text-center pt-1 space-y-2">
+              <p className="text-xs text-slate-400">
+                Remember your password?{' '}
+                <Link to="/login" className="text-blue-400 font-semibold hover:text-blue-300 transition">
+                  Return to sign in
+                </Link>
+              </p>
+              <div>
+                <Link
+                  to="/"
+                  className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Home</span>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>

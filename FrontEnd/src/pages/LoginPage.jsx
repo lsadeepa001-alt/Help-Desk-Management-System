@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth, getLandingPath } from '../context/AuthContext';
-import { LifeBuoy, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { LifeBuoy, Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
 import Button from '../components/ui/Button';
 
 export default function LoginPage() {
@@ -170,7 +170,7 @@ export default function LoginPage() {
                 </Button>
               </div>
 
-              <div className="text-center pt-2">
+              <div className="text-center pt-2 space-y-2">
                 <p className="text-xs text-slate-400">
                   New to UniAssist?{' '}
                   <Link
@@ -180,6 +180,15 @@ export default function LoginPage() {
                     Create Account
                   </Link>
                 </p>
+                <div>
+                  <Link
+                    to="/"
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to Home</span>
+                  </Link>
+                </div>
               </div>
             </form>
           </div>

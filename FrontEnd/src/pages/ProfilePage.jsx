@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import {
-  User,
+  User as UserIcon,
   Mail,
   Bell,
   CheckCircle2,
@@ -11,50 +11,52 @@ import {
   Phone,
   Shield,
   Save,
+  Info,
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 
 const API = 'http://localhost:8080/api';
 
+const ROLE_LABELS = {
+  STUDENT: 'Student',
+  LECTURER: 'Lecturer',
+  SUPPORT_AGENT: 'Support Agent',
+  TEAM_LEAD: 'Team Lead / Supervisor',
+  KNOWLEDGE_MANAGER: 'Knowledge Manager',
+  SYSTEM_ADMINISTRATOR: 'System Administrator',
+  MANAGER_EXECUTIVE: 'Manager / Executive',
+};
+
 export default function ProfilePage() {
   const { user, updateCurrentUser } = useAuth();
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    department: '',
-    phoneNumber: '',
-  });
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
 
   useEffect(() => {
-    setFormData({
-      fullName: user?.fullName || '',
-      email: user?.email || '',
-      department: user?.department || '',
-      phoneNumber: user?.phoneNumber || '',
-    });
+    setPhoneNumber(user?.phoneNumber || '');
   }, [user]);
 
-  const handleSubmit = async (event) => {
+  const handleSaveContact = async (event) => {
     event.preventDefault();
     setSaving(true);
     setMessage(null);
     try {
-      const response = await axios.put(`${API}/users/${user.id}/profile`, formData);
+      const response = await axios.put(`${API}/users/${user.id}/profile`, {
+        phoneNumber: phoneNumber.trim(),
+      });
       updateCurrentUser(response.data);
-      setMessage({ type: 'success', text: 'Profile and contact details updated successfully.' });
+      setMessage({ type: 'success', text: 'Contact details saved successfully.' });
     } catch (error) {
       setMessage({
         type: 'error',
-        text: error.response?.data?.message || 'Unable to update your profile.',
+        text: error.response?.data?.message || 'Unable to update contact details.',
       });
     } finally {
       setSaving(false);
     }
   };
 
-  // ── Notification Preferences State ──
   const [prefs, setPrefs] = useState({
     inAppEnabled: true,
     emailEnabled: true,
@@ -76,7 +78,7 @@ export default function ProfilePage() {
         const res = await axios.get(`${API}/notifications/preferences?userId=${user.id}`);
         setPrefs(res.data);
       } catch {
-        // Fallback default preferences
+        // Use default preferences if query fails
       } finally {
         setPrefsLoading(false);
       }
@@ -106,25 +108,68 @@ export default function ProfilePage() {
     setPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const isOperationalStaff = user?.role === 'SUPPORT_AGENT' || user?.role === 'TEAM_LEAD';
+  const roleDisplay = ROLE_LABELS[user?.role] || user?.role;
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      {/* ── Page Header ── */}
       <div>
         <h1 className="text-2xl font-bold text-white tracking-tight">Account & Preferences</h1>
         <p className="text-xs text-slate-400 mt-1">
-          Manage your personal university credentials, contact details, and notification channels.
+          View your institutional account details, manage personal contact info, and customize notification channels.
         </p>
       </div>
 
-      {/* ── Profile Information Card ── */}
-      <form onSubmit={handleSubmit} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+      {/* ── ACCOUNT IDENTITY (Intentionally Read-Only) ── */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-5">
         <div>
           <h2 className="text-base font-bold text-white flex items-center gap-2">
-            <User className="w-4 h-4 text-blue-400" />
-            <span>Profile Information</span>
+            <UserIcon className="w-4 h-4 text-blue-400" />
+            <span>Account Identity</span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Your university identity and technical contact details.
+            Your university directory information. Role and identity attributes are managed by the System Administrator.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <IdentityItem label="Username" value={`@${user?.username}`} />
+          <IdentityItem label="Full Name" value={user?.fullName} />
+          <IdentityItem label="Email Address" value={user?.email} icon={Mail} />
+          <IdentityItem label="Access Role" value={roleDisplay} icon={Shield} highlight />
+
+          {isOperationalStaff ? (
+            <div className="md:col-span-2 p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                  Technical Department
+                </span>
+                <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-500/10 border border-blue-500/30 text-blue-400">
+                  {user?.department || 'Not Assigned'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 flex items-center gap-1.5 pt-1">
+                <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>Technical department is managed by the System Administrator.</span>
+              </p>
+            </div>
+          ) : user?.department ? (
+            <div className="md:col-span-2">
+              <IdentityItem label="Department / Faculty" value={user.department} icon={Building2} />
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* ── CONTACT DETAILS (Editable: Phone Number) ── */}
+      <form onSubmit={handleSaveContact} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-5">
+        <div>
+          <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <Phone className="w-4 h-4 text-blue-400" />
+            <span>Contact Details</span>
+          </h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Keep your phone number current for campus support follow-ups and notifications.
           </p>
         </div>
 
@@ -145,16 +190,24 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <ReadOnlyField label="Username" value={user?.username} />
-          <ReadOnlyField label="Access Role" value={user?.frontendRole || user?.role} />
-          <EditableField label="Full Name" name="fullName" value={formData.fullName} setFormData={setFormData} required />
-          <EditableField label="Email" name="email" value={formData.email} setFormData={setFormData} type="email" required />
-          <EditableField label="Department" name="department" value={formData.department} setFormData={setFormData} />
-          <EditableField label="Phone Number" name="phoneNumber" value={formData.phoneNumber} setFormData={setFormData} type="tel" />
+        <div className="max-w-md">
+          <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+            Phone Number
+          </label>
+          <input
+            type="tel"
+            value={phoneNumber}
+            maxLength={20}
+            placeholder="e.g. +94-77-123-4567"
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          />
+          <p className="text-[11px] text-slate-500 mt-1">
+            Optional personal contact number.
+          </p>
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end pt-2">
           <Button
             type="submit"
             variant="primary"
@@ -163,12 +216,12 @@ export default function ProfilePage() {
             disabled={saving}
             icon={Save}
           >
-            Save Profile
+            Save Contact Details
           </Button>
         </div>
       </form>
 
-      {/* ── Notification Delivery Preferences ── */}
+      {/* ── NOTIFICATION PREFERENCES ── */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
         <div>
           <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -201,7 +254,6 @@ export default function ProfilePage() {
           <div className="py-8 text-center text-slate-400 text-xs">Loading preferences...</div>
         ) : (
           <form onSubmit={handleSavePrefs} className="space-y-6">
-            {/* Delivery Channels */}
             <div className="space-y-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-400">Delivery Channels</h3>
               <div className="grid sm:grid-cols-2 gap-3">
@@ -222,7 +274,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Event Subscriptions */}
             <div className="space-y-3 pt-2 border-t border-slate-800">
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-400">Event Subscriptions</h3>
               <div className="space-y-2.5">
@@ -268,7 +319,7 @@ export default function ProfilePage() {
                 disabled={prefsSaving}
                 icon={Save}
               >
-                Save Preferences
+                Save Notification Preferences
               </Button>
             </div>
           </form>
@@ -278,29 +329,16 @@ export default function ProfilePage() {
   );
 }
 
-function ReadOnlyField({ label, value }) {
+function IdentityItem({ label, value, icon: Icon, highlight = false }) {
   return (
-    <div>
-      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{label}</label>
-      <div className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-400">
+    <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/80">
+      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+        {Icon && <Icon className="w-3.5 h-3.5 text-slate-400" />}
+        <span>{label}</span>
+      </div>
+      <div className={`text-xs font-medium ${highlight ? 'text-blue-400 font-semibold' : 'text-slate-200'}`}>
         {value || '—'}
       </div>
-    </div>
-  );
-}
-
-function EditableField({ label, name, value, setFormData, type = 'text', required = false }) {
-  return (
-    <div>
-      <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">{label}</label>
-      <input
-        type={type}
-        value={value}
-        required={required}
-        maxLength={name === 'phoneNumber' ? 20 : 100}
-        onChange={(event) => setFormData((current) => ({ ...current, [name]: event.target.value }))}
-        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-      />
     </div>
   );
 }

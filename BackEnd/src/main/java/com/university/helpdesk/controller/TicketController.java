@@ -283,37 +283,6 @@ public class TicketController {
         return ResponseEntity.noContent().build();
     }
 
-    // ─── OPTIONAL / BACKWARD-COMPATIBLE TRIAGE ENDPOINTS ─────────────────────
-    @Deprecated
-    @PutMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('ROLE_SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<Ticket> rejectTicket(@PathVariable Long id, Authentication auth) {
-        return reviewTicket(id, auth, Status.REJECTED);
-    }
-
-    private ResponseEntity<Ticket> reviewTicket(Long id, Authentication auth, Status reviewStatus) {
-        Ticket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
-        User currentUser = getCurrentUser(auth);
-
-        if (isCreator(ticket, currentUser)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Administrators must use owner actions for their own tickets");
-        }
-        if (ticket.getStatus() != Status.OPEN) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only OPEN tickets can be reviewed");
-        }
-
-        ticket.setStatus(reviewStatus);
-        Ticket saved = ticketRepository.save(ticket);
-        try {
-            notificationService.notifyStatusUpdated(saved, Status.OPEN, reviewStatus);
-        } catch (Exception e) {
-            System.err.println("Notification trigger failed: " + e.getMessage());
-        }
-        return ResponseEntity.ok(saved);
-    }
-
     @PutMapping("/{id}/route")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMINISTRATOR', 'TEAM_LEAD')")
     public ResponseEntity<Ticket> routeTicket(@PathVariable Long id,
@@ -341,6 +310,7 @@ public class TicketController {
         String previousDepartment = ticket.getDepartment();
         User previousAgent = ticket.getAssignedTo();
         boolean wasRerouted = previousDepartment != null;
+        Status oldStatus = ticket.getStatus();
 
         String newDepartment = normalizeTechnicalDepartment(body.get("department"));
         ticket.setDepartment(newDepartment);
@@ -356,6 +326,14 @@ public class TicketController {
         }
 
         Ticket saved = ticketRepository.save(ticket);
+
+        if (oldStatus != saved.getStatus()) {
+            try {
+                notificationService.notifyStatusUpdated(saved, oldStatus, saved.getStatus());
+            } catch (Exception e) {
+                System.err.println("Notification trigger failed: " + e.getMessage());
+            }
+        }
 
         // Record agent activity log
         try {

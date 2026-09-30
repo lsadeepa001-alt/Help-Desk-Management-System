@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
 import {
   MessageCircle,
-  Bot,
-  User,
+  CircleHelp,
   Ticket,
   Send,
   Trash2,
@@ -13,14 +11,12 @@ import {
   KeyRound,
   Laptop,
   CheckCircle2,
-  AlertCircle,
   Plus,
 } from 'lucide-react';
 
 const API = 'http://localhost:8080/api';
 
 export default function AiChatbotModal({ onNavigateToCreateTicket }) {
-  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     {
@@ -157,7 +153,7 @@ export default function AiChatbotModal({ onNavigateToCreateTicket }) {
           aria-label="Open Support Assistant"
         >
           <div className="relative">
-            <Bot className="w-5 h-5 text-white" />
+            <MessageCircle className="w-5 h-5 text-white" />
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border border-slate-900" />
           </div>
           <span className="font-semibold text-xs tracking-wide hidden sm:inline">Support Assistant</span>
@@ -177,14 +173,14 @@ export default function AiChatbotModal({ onNavigateToCreateTicket }) {
           <div className="bg-slate-950 p-4 px-5 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
-                <Bot className="w-5 h-5" />
+                <CircleHelp className="w-5 h-5" />
                 <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-400 rounded-full border-2 border-slate-900" />
               </div>
               <div>
                 <h3 className="font-bold text-sm text-white leading-tight flex items-center gap-1.5">
                   Support Assistant
-                  <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.2 rounded font-mono">
-                    AI
+                  <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded font-medium">
+                    Self-Service
                   </span>
                 </h3>
                 <p className="text-[11px] text-slate-400 flex items-center gap-1">
@@ -247,7 +243,7 @@ export default function AiChatbotModal({ onNavigateToCreateTicket }) {
                 <div className="flex gap-2 max-w-[85%]">
                   {m.sender === 'bot' && (
                     <div className="w-7 h-7 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center text-xs shrink-0 mt-0.5">
-                      <Bot className="w-3.5 h-3.5" />
+                      <MessageCircle className="w-3.5 h-3.5" />
                     </div>
                   )}
 
@@ -329,7 +325,7 @@ export default function AiChatbotModal({ onNavigateToCreateTicket }) {
             {loading && (
               <div className="flex items-center gap-2 text-slate-400">
                 <div className="w-7 h-7 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center text-xs">
-                  <Bot className="w-3.5 h-3.5" />
+                  <MessageCircle className="w-3.5 h-3.5" />
                 </div>
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl rounded-tl-none px-4 py-2.5 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />

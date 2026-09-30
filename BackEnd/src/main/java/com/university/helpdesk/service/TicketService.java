@@ -138,6 +138,7 @@ public class TicketService {
                     "Ticket is already assigned to another agent");
         }
 
+        Status oldStatus = ticket.getStatus();
         ticket.setAssignedTo(currentUser);
         ticket.setStatus(Status.IN_PROGRESS);
         Ticket updated = ticketRepository.save(ticket);
@@ -161,6 +162,14 @@ public class TicketService {
             assignmentHistoryRepository.save(history);
         } catch (Exception e) {
             System.err.println("Assignment history recording failed: " + e.getMessage());
+        }
+
+        if (oldStatus != Status.IN_PROGRESS) {
+            try {
+                notificationService.notifyStatusUpdated(updated, oldStatus, Status.IN_PROGRESS);
+            } catch (Exception e) {
+                System.err.println("Notification trigger failed: " + e.getMessage());
+            }
         }
 
         try {
@@ -193,6 +202,7 @@ public class TicketService {
 
         User previousAgent = ticket.getAssignedTo();
 
+        Status oldStatus = ticket.getStatus();
         User assignedAgent = null;
         if (agentId == null) {
             ticket.setAssignedTo(null);
@@ -217,6 +227,14 @@ public class TicketService {
         }
 
         Ticket updated = ticketRepository.save(ticket);
+
+        if (oldStatus != updated.getStatus()) {
+            try {
+                notificationService.notifyStatusUpdated(updated, oldStatus, updated.getStatus());
+            } catch (Exception e) {
+                System.err.println("Notification trigger failed: " + e.getMessage());
+            }
+        }
 
         // Record agent activity log
         try {
@@ -443,12 +461,10 @@ public class TicketService {
         ticket.setStatus(terminalStatus);
         Ticket saved = ticketRepository.save(ticket);
 
-        if (terminalStatus == Status.REJECTED) {
-            try {
-                notificationService.notifyStatusUpdated(saved, Status.OPEN, Status.REJECTED);
-            } catch (Exception e) {
-                System.err.println("Notification trigger failed: " + e.getMessage());
-            }
+        try {
+            notificationService.notifyStatusUpdated(saved, Status.OPEN, terminalStatus);
+        } catch (Exception e) {
+            System.err.println("Notification trigger failed: " + e.getMessage());
         }
 
         return saved;

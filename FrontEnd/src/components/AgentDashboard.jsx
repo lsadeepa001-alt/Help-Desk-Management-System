@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Inbox,
   Filter,
+  ArrowUpDown,
 } from 'lucide-react';
 import Button from './ui/Button';
 import Badge from './ui/Badge';
@@ -48,25 +49,40 @@ export default function AgentDashboard({ onViewTicket }) {
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [filterPriority, setFilterPriority] = useState('ALL');
   const [filterDept, setFilterDept] = useState('ALL');
+  const [sortBy, setSortBy] = useState('NEWEST');
   const [search, setSearch] = useState('');
   const [actionMsg, setActionMsg] = useState('');
   const [isError, setIsError] = useState(false);
 
-  const fetchTickets = useCallback(async () => {
-    setLoading(true);
+  const fetchTickets = useCallback(async (isBackground = false) => {
+    if (!isBackground) {
+      setLoading(true);
+    }
     try {
       const res = await axios.get(`${API}/tickets`);
       setTickets(res.data);
     } catch {
-      setActionMsg('Failed to load tickets.');
-      setIsError(true);
+      if (!isBackground) {
+        setActionMsg('Failed to load tickets.');
+        setIsError(true);
+      }
     } finally {
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    fetchTickets();
+    fetchTickets(false);
+
+    const intervalId = setInterval(() => {
+      if (!document.hidden) {
+        fetchTickets(true);
+      }
+    }, 20000);
+
+    return () => clearInterval(intervalId);
   }, [fetchTickets]);
 
   const departments = ['ALL', 'IT', 'Maintenance', 'Security'];
@@ -77,6 +93,14 @@ export default function AgentDashboard({ onViewTicket }) {
     inProgress: tickets.filter((t) => t.status === 'IN_PROGRESS').length,
     resolved: tickets.filter((t) => t.status === 'RESOLVED').length,
     unassigned: tickets.filter((t) => !t.assignedTo).length,
+  };
+
+  const priorityWeights = {
+    CRITICAL: 5,
+    URGENT: 4,
+    HIGH: 3,
+    MEDIUM: 2,
+    LOW: 1,
   };
 
   const filtered = tickets.filter((t) => {
@@ -91,6 +115,19 @@ export default function AgentDashboard({ onViewTicket }) {
       t.ticketNumber?.toLowerCase().includes(q) ||
       t.createdBy?.fullName?.toLowerCase().includes(q);
     return matchStatus && matchPriority && matchDept && matchSearch;
+  });
+
+  const filteredAndSorted = [...filtered].sort((a, b) => {
+    if (sortBy === 'OLDEST') {
+      return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+    }
+    if (sortBy === 'PRIORITY_DESC') {
+      const weightA = priorityWeights[a.priority] || 0;
+      const weightB = priorityWeights[b.priority] || 0;
+      if (weightB !== weightA) return weightB - weightA;
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    }
+    return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
   });
 
   const claimTicket = async (ticketId) => {
@@ -139,9 +176,15 @@ export default function AgentDashboard({ onViewTicket }) {
       {/* Header */}
       <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-400 text-xs font-semibold uppercase tracking-wider mb-2">
-            <Wrench className="w-3.5 h-3.5" />
-            <span>Operational Workspace</span>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-400 text-xs font-semibold uppercase tracking-wider">
+              <Wrench className="w-3.5 h-3.5" />
+              <span>Operational Workspace</span>
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-800/80 border border-slate-700/60 text-slate-400 text-[11px] font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>20s Live Sync</span>
+            </div>
           </div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Agent Workspace</h2>
           <p className="text-slate-400 text-xs mt-1">
@@ -242,8 +285,23 @@ export default function AgentDashboard({ onViewTicket }) {
             ))}
           </select>
 
+          {/* Sort Dropdown */}
+          <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300">
+            <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-transparent text-xs text-slate-300 focus:outline-none cursor-pointer"
+              aria-label="Sort tickets"
+            >
+              <option value="NEWEST" className="bg-slate-950 text-slate-200">Newest First</option>
+              <option value="OLDEST" className="bg-slate-950 text-slate-200">Oldest First</option>
+              <option value="PRIORITY_DESC" className="bg-slate-950 text-slate-200">Priority: High to Low</option>
+            </select>
+          </div>
+
           <span className="ml-auto text-[11px] text-slate-500">
-            Showing <strong className="text-slate-300">{filtered.length}</strong> of {tickets.length} tickets
+            Showing <strong className="text-slate-300">{filteredAndSorted.length}</strong> of {tickets.length} tickets
           </span>
         </div>
       </div>
@@ -254,7 +312,7 @@ export default function AgentDashboard({ onViewTicket }) {
           <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-xs text-slate-400">Loading tickets...</p>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : filteredAndSorted.length === 0 ? (
         <EmptyState
           icon={Inbox}
           title="No Tickets Found"
@@ -262,7 +320,7 @@ export default function AgentDashboard({ onViewTicket }) {
         />
       ) : (
         <div className="space-y-3">
-          {filtered.map((ticket) => (
+          {filteredAndSorted.map((ticket) => (
             <div
               key={ticket.id}
               className="bg-slate-900 border border-slate-800 rounded-2xl p-4 hover:border-slate-700 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"

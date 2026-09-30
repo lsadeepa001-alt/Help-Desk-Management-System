@@ -240,8 +240,8 @@ export default function HomePage() {
                     <div className="text-xs text-slate-400">Core Depts</div>
                   </div>
                   <div>
-                    <div className="text-xl font-bold text-white">24/7</div>
-                    <div className="text-xs text-slate-400">Self-Service</div>
+                    <div className="text-xl font-bold text-white">Direct</div>
+                    <div className="text-xs text-slate-400">Department Routing</div>
                   </div>
                   <div>
                     <div className="text-xl font-bold text-white">SLA</div>
@@ -330,9 +330,7 @@ export default function HomePage() {
 
                   <div className="pt-2 text-center">
                     <p className="text-[11px] text-slate-400">
-                      Need immediate help? Click the{' '}
-                      <span className="text-blue-300 font-semibold">Support Assistant</span>{' '}
-                      button at bottom right.
+                      Sign in to access the Knowledge Base and Support Assistant.
                     </p>
                   </div>
                 </div>
@@ -352,7 +350,7 @@ export default function HomePage() {
                 Three Specialized Service Areas
               </h2>
               <p className="text-sm text-slate-400">
-                UniAssist 360 directs tickets directly to certified university personnel according to operational domain.
+                UniAssist 360 directs tickets directly to university support teams according to operational domain.
               </p>
             </div>
 

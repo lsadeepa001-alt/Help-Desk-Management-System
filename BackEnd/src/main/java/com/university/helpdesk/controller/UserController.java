@@ -1,13 +1,12 @@
 package com.university.helpdesk.controller;
 
 import com.university.helpdesk.dto.AdminUserCreateRequest;
+import com.university.helpdesk.dto.AdminUserUpdateRequest;
 import com.university.helpdesk.dto.ProfileUpdateRequest;
 import com.university.helpdesk.model.Role;
 import com.university.helpdesk.model.User;
 import com.university.helpdesk.repository.UserRepository;
-import com.university.helpdesk.service.PasswordResetService;
 import jakarta.validation.Valid;
-import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,26 +24,23 @@ import java.util.Set;
 @RequestMapping("/users")
 public class UserController {
 
+    private static final Set<String> TECHNICAL_DEPARTMENTS = Set.of("IT", "MAINTENANCE", "SECURITY");
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final PasswordResetService passwordResetService;
 
     public UserController(UserRepository userRepository,
-                          PasswordEncoder passwordEncoder,
-                          PasswordResetService passwordResetService) {
+                          PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.passwordResetService = passwordResetService;
     }
 
-    // ─── GET ALL USERS (Administrator only) ───────────────────────────────────
     @GetMapping
     @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
 
-    // ─── GET AGENTS ONLY (Staff and Admins for ticket assignment) ─────────────
     @GetMapping("/agents")
     @PreAuthorize("hasAnyRole('TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public List<User> getAgents(Authentication authentication) {
@@ -66,8 +62,7 @@ public class UserController {
                 .toList();
     }
 
-    // ─── GET USER BY ID (Administrator only) ──────────────────────────────────
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<User> getUserById(@PathVariable Long id) {
         return userRepository.findById(id)
@@ -75,7 +70,12 @@ public class UserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PutMapping("/{id}/profile")
+    /**
+     * Authoritative Self-Profile Update.
+     * All users (including System Administrators) may self-edit ONLY their phone number.
+     * Full Name, Email, Username, Role, Status, and Department are strictly read-only.
+     */
+    @PutMapping("/{id:[0-9]+}/profile")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<User> updateOwnProfile(@PathVariable Long id,
                                                  @Valid @RequestBody ProfileUpdateRequest request,
@@ -87,56 +87,89 @@ public class UserController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only update your own profile");
         }
 
-        userRepository.findByEmailIgnoreCase(request.getEmail().trim())
-                .filter(existing -> !existing.getId().equals(currentUser.getId()))
-                .ifPresent(existing -> {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already registered");
-                });
-
-        currentUser.setFullName(request.getFullName().trim());
-        currentUser.setEmail(request.getEmail().trim());
-        currentUser.setDepartment(normalizeOptional(request.getDepartment()));
         currentUser.setPhoneNumber(normalizeOptional(request.getPhoneNumber()));
         return ResponseEntity.ok(userRepository.save(currentUser));
     }
 
-    @GetMapping("/password-reset-requests")
+    /**
+     * Administrative User Update.
+     * System Administrators may update identity, role, account status, and technical department of other users.
+     */
+    @PutMapping("/{id:[0-9]+}")
     @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<?> getPendingPasswordResetRequests() {
-        return ResponseEntity.ok()
-                .cacheControl(CacheControl.noStore())
-                .body(passwordResetService.getPendingRequests());
-    }
+    public ResponseEntity<User> adminUpdateUser(@PathVariable Long id,
+                                                @Valid @RequestBody AdminUserUpdateRequest request,
+                                                Authentication authentication) {
+        User targetUser = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-    @PostMapping("/password-reset-requests/{requestId}/issue")
-    @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<?> issuePasswordResetCredential(@PathVariable Long requestId) {
-        return ResponseEntity.ok()
-                .cacheControl(CacheControl.noStore())
-                .body(passwordResetService.issueCredential(requestId));
-    }
+        User currentAdmin = userRepository.findByUsername(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-    private static final Set<String> TECHNICAL_DEPARTMENTS = Set.of("IT", "MAINTENANCE", "SECURITY");
+        String newUsername = request.getUsername().trim();
+        String newEmail = request.getEmail().trim().toLowerCase(Locale.ROOT);
 
-    private String normalizeTechnicalDepartment(String value) {
-        if (value == null || value.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Department is required for operational staff (SUPPORT_AGENT, TEAM_LEAD). Allowed values: IT, Maintenance, Security");
+        userRepository.findByUsername(newUsername)
+                .filter(u -> !u.getId().equals(targetUser.getId()))
+                .ifPresent(u -> {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username is already taken");
+                });
+
+        userRepository.findByEmailIgnoreCase(newEmail)
+                .filter(u -> !u.getId().equals(targetUser.getId()))
+                .ifPresent(u -> {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already registered");
+                });
+
+        Role newRole = request.getRole();
+        String newStatus = request.getStatus().trim().toUpperCase(Locale.ROOT);
+        if (!"ACTIVE".equals(newStatus) && !"SUSPENDED".equals(newStatus) && !"INACTIVE".equals(newStatus)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid status: " + newStatus);
         }
-        String normalized = value.trim().toUpperCase(Locale.ROOT);
-        if (!TECHNICAL_DEPARTMENTS.contains(normalized)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Invalid technical department. Allowed values: IT, Maintenance, Security");
+
+        // Prevent accidental self-demotion or self-suspension by the currently logged-in administrator
+        if (targetUser.getId().equals(currentAdmin.getId())) {
+            if (newRole != Role.SYSTEM_ADMINISTRATOR) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot remove your own System Administrator role");
+            }
+            if ("SUSPENDED".equals(newStatus) || "INACTIVE".equals(newStatus)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot suspend your own administrator account");
+            }
         }
-        return switch (normalized) {
-            case "IT" -> "IT";
-            case "MAINTENANCE" -> "Maintenance";
-            case "SECURITY" -> "Security";
-            default -> throw new IllegalStateException("Unexpected department: " + normalized);
-        };
+
+        // Technical Department Authorization Invariant
+        String department = normalizeOptional(request.getDepartment());
+        if (newRole == Role.SUPPORT_AGENT || newRole == Role.TEAM_LEAD) {
+            if (department == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Department is required for operational staff (SUPPORT_AGENT, TEAM_LEAD). Allowed values: IT, Maintenance, Security");
+            }
+            department = normalizeTechnicalDepartment(department);
+        } else {
+            // Non-operational roles do not have a technical authorization department
+            department = null;
+        }
+
+        boolean securityChanged = !targetUser.getUsername().equalsIgnoreCase(newUsername)
+                || targetUser.getRole() != newRole
+                || !targetUser.getStatus().equalsIgnoreCase(newStatus);
+
+        targetUser.setUsername(newUsername);
+        targetUser.setEmail(newEmail);
+        targetUser.setFullName(request.getFullName().trim());
+        targetUser.setRole(newRole);
+        targetUser.setStatus(newStatus);
+        targetUser.setDepartment(department);
+        targetUser.setPhoneNumber(normalizeOptional(request.getPhoneNumber()));
+
+        if (securityChanged) {
+            targetUser.setTokenVersion(targetUser.getTokenVersion() + 1);
+        }
+
+        User saved = userRepository.save(targetUser);
+        return ResponseEntity.ok(saved);
     }
 
-    // ─── CREATE USER (Administrator only) ─────────────────────────────────────
     @PostMapping
     @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<?> createUser(@Valid @RequestBody AdminUserCreateRequest request) {
@@ -158,7 +191,7 @@ public class UserController {
                         "Department is required for operational staff (SUPPORT_AGENT, TEAM_LEAD). Allowed values: IT, Maintenance, Security");
             }
             department = normalizeTechnicalDepartment(department);
-        } else if (role == Role.KNOWLEDGE_MANAGER || role == Role.MANAGER_EXECUTIVE || role == Role.SYSTEM_ADMINISTRATOR) {
+        } else {
             department = null;
         }
 
@@ -176,8 +209,7 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
-    // ─── UPDATE USER ROLE (Administrator only) ────────────────────────────────
-    @PutMapping("/{id}/role")
+    @PutMapping("/{id:[0-9]+}/role")
     @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<?> updateUserRole(@PathVariable Long id, @RequestBody Map<String, String> body) {
         User user = userRepository.findById(id)
@@ -189,7 +221,7 @@ public class UserController {
         }
 
         try {
-            Role newRole = Role.valueOf(roleStr.trim().toUpperCase());
+            Role newRole = Role.valueOf(roleStr.trim().toUpperCase(Locale.ROOT));
             if (newRole == Role.SUPPORT_AGENT || newRole == Role.TEAM_LEAD) {
                 String dept = body.get("department");
                 if (dept == null || dept.isBlank()) {
@@ -200,14 +232,15 @@ public class UserController {
                             "Department is required for operational staff (SUPPORT_AGENT, TEAM_LEAD). Allowed values: IT, Maintenance, Security");
                 }
                 user.setDepartment(normalizeTechnicalDepartment(dept));
-            } else if (newRole == Role.KNOWLEDGE_MANAGER || newRole == Role.MANAGER_EXECUTIVE || newRole == Role.SYSTEM_ADMINISTRATOR) {
+            } else {
                 user.setDepartment(null);
-            } else if (newRole == Role.STUDENT || newRole == Role.LECTURER) {
-                if (body.containsKey("department")) {
-                    user.setDepartment(normalizeOptional(body.get("department")));
-                }
+            }
+
+            if (user.getRole() != newRole) {
+                user.setTokenVersion(user.getTokenVersion() + 1);
             }
             user.setRole(newRole);
+
             User updated = userRepository.save(user);
             return ResponseEntity.ok(updated);
         } catch (IllegalArgumentException e) {
@@ -215,8 +248,7 @@ public class UserController {
         }
     }
 
-    // ─── UPDATE USER STATUS (Administrator only) ──────────────────────────────
-    @PutMapping("/{id}/status")
+    @PutMapping("/{id:[0-9]+}/status")
     @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<?> updateUserStatus(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
         User user = userRepository.findById(id)
@@ -224,9 +256,8 @@ public class UserController {
 
         String newStatus;
         if (body != null && body.containsKey("status") && !body.get("status").isBlank()) {
-            newStatus = body.get("status").trim().toUpperCase();
+            newStatus = body.get("status").trim().toUpperCase(Locale.ROOT);
         } else {
-            // Toggle between ACTIVE and SUSPENDED
             newStatus = "ACTIVE".equalsIgnoreCase(user.getStatus()) ? "SUSPENDED" : "ACTIVE";
         }
 
@@ -240,8 +271,7 @@ public class UserController {
         return ResponseEntity.ok(updated);
     }
 
-    // ─── DELETE USER (Administrator only) ─────────────────────────────────────
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:[0-9]+}")
     @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         if (!userRepository.existsById(id)) {
@@ -249,6 +279,24 @@ public class UserController {
         }
         userRepository.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private String normalizeTechnicalDepartment(String value) {
+        if (value == null || value.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Department is required for operational staff (SUPPORT_AGENT, TEAM_LEAD). Allowed values: IT, Maintenance, Security");
+        }
+        String normalized = value.trim().toUpperCase(Locale.ROOT);
+        if (!TECHNICAL_DEPARTMENTS.contains(normalized)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid technical department. Allowed values: IT, Maintenance, Security");
+        }
+        return switch (normalized) {
+            case "IT" -> "IT";
+            case "MAINTENANCE" -> "Maintenance";
+            case "SECURITY" -> "Security";
+            default -> throw new IllegalStateException("Unexpected department: " + normalized);
+        };
     }
 
     private String normalizeOptional(String value) {
