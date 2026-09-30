@@ -49,7 +49,7 @@ public class NotificationService {
                 .toList();
 
         String deptName = ticket.getDepartment() != null ? ticket.getDepartment() : "General";
-        String title = "➕ New Support Ticket Submitted (" + deptName + ")";
+        String title = "New Support Ticket Submitted (" + deptName + ")";
         String message = "Ticket " + ticket.getTicketNumber() + " ('" + ticket.getTitle() + "') was submitted to " +
                 deptName + " by " +
                 (ticket.getCreatedBy() != null ? ticket.getCreatedBy().getFullName() : "a user") + ".";
@@ -75,11 +75,10 @@ public class NotificationService {
         }
     }
 
-    // ─── TICKET ASSIGNED ─────────────────────────────────────────────────────
     public void notifyTicketAssigned(Ticket ticket, User agent) {
         if (ticket == null || agent == null) return;
 
-        String title = "👤 Ticket Assigned to You";
+        String title = "Ticket Assigned to You";
         String message = "You have been assigned to Ticket " + ticket.getTicketNumber() + ": '" + ticket.getTitle() + "'.";
 
         UserNotificationPreferences prefs = getPreferences(agent);
@@ -94,12 +93,11 @@ public class NotificationService {
         }
     }
 
-    // ─── TICKET STATUS UPDATED ───────────────────────────────────────────────
     public void notifyStatusUpdated(Ticket ticket, Status oldStatus, Status newStatus) {
         if (ticket == null || ticket.getCreatedBy() == null) return;
 
         User owner = ticket.getCreatedBy();
-        String title = "🔄 Ticket Status Updated (" + newStatus.name().replace('_', ' ') + ")";
+        String title = "Ticket Status Updated (" + newStatus.name().replace('_', ' ') + ")";
         String message = "Your ticket " + ticket.getTicketNumber() + " status changed from " +
                 oldStatus.name().replace('_', ' ') + " to " + newStatus.name().replace('_', ' ') + ".";
 
@@ -116,7 +114,7 @@ public class NotificationService {
 
         // If ticket resolved, also send CSAT request notification
         if (newStatus == Status.RESOLVED && prefs.isCsatRequestEnabled()) {
-            String csatTitle = "⭐ Rate Your Experience";
+            String csatTitle = "Rate Your Experience";
             String csatMessage = "Ticket " + ticket.getTicketNumber() + " has been resolved! Click to share your 1-5 star feedback.";
             if (prefs.isInAppEnabled()) {
                 Notification csatNotification = new Notification(owner, csatTitle, csatMessage, NotificationType.CSAT_REQUEST, ticket.getId());
@@ -128,7 +126,6 @@ public class NotificationService {
         }
     }
 
-    // ─── NEW COMMENT ─────────────────────────────────────────────────────────
     public void notifyNewComment(Ticket ticket, TicketComment comment) {
         if (ticket == null || comment == null) return;
 
@@ -155,7 +152,7 @@ public class NotificationService {
             }
         }
 
-        String title = "💬 New Reply on Ticket " + ticket.getTicketNumber();
+        String title = "New Reply on Ticket " + ticket.getTicketNumber();
         String authorName = author != null ? author.getFullName() : "A user";
         String snippet = comment.getContent().length() > 60
                 ? comment.getContent().substring(0, 60) + "..."

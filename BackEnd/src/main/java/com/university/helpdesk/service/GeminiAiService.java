@@ -212,7 +212,7 @@ public class GeminiAiService {
 
         if (bestMatch != null) {
             return "Based on your inquiry, here is the step-by-step solution from our University Knowledge Base:\n\n" +
-                   "📌 **" + bestMatch.getTitle() + "**\n\n" +
+                   "**" + bestMatch.getTitle() + "**\n\n" +
                    bestMatch.getContent() + "\n\n" +
                    "Does this step-by-step solution resolve your issue?";
         }

@@ -1,91 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth, getLandingPath } from '../context/AuthContext';
+import {
+  LifeBuoy,
+  User,
+  Mail,
+  Lock,
+  Phone,
+  Eye,
+  EyeOff,
+  GraduationCap,
+  BookOpen,
+  Check,
+  AlertCircle,
+  CheckCircle2,
+} from 'lucide-react';
+import Button from '../components/ui/Button';
 
-// ── Static SVG Icons (Defined outside to prevent recreating on every render) ──
-const UserIcon = (
-  <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-  </svg>
-);
-
-const EmailIcon = (
-  <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-  </svg>
-);
-
-const LockIcon = (
-  <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-  </svg>
-);
-
-const PhoneIcon = (
-  <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-  </svg>
-);
-
-// ── Reusable Input Field Component (Defined outside RegisterPage to prevent focus loss) ──
-const InputField = ({
-  label,
-  name,
-  type = 'text',
-  value,
-  onChange,
-  placeholder,
-  icon,
-  required = false,
-  autoComplete,
-  passwordVisible = false,
-  onTogglePassword,
-}) => (
-  <div>
-    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-      {label} {required && <span className="text-rose-400">*</span>}
-    </label>
-    <div className="relative">
-      {icon && (
-        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-          {icon}
-        </div>
-      )}
-      <input
-        type={onTogglePassword ? (passwordVisible ? 'text' : 'password') : type}
-        name={name}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        autoComplete={autoComplete}
-        className={`w-full bg-slate-900/90 border border-slate-700 rounded-xl pl-10 ${onTogglePassword ? 'pr-11' : 'pr-4'} py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 text-sm transition`}
-        required={required}
-      />
-      {onTogglePassword && (
-        <button
-          type="button"
-          onClick={onTogglePassword}
-          aria-label={passwordVisible ? 'Hide password' : 'Show password'}
-          title={passwordVisible ? 'Hide password' : 'Show password'}
-          className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-indigo-300 transition"
-        >
-          {passwordVisible ? (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3l18 18M10.6 10.7a2 2 0 002.7 2.7M9.9 4.2A10.5 10.5 0 0112 4c5 0 9.3 3.1 11 8a11.8 11.8 0 01-2.2 3.8M6.6 6.6A11.5 11.5 0 001 12c1.7 4.9 6 8 11 8 1.7 0 3.3-.4 4.7-1" />
-            </svg>
-          ) : (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
-              <circle cx="12" cy="12" r="3" strokeWidth="2" />
-            </svg>
-          )}
-        </button>
-      )}
-    </div>
-  </div>
-);
-
-const RegisterPage = () => {
+export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -155,7 +87,6 @@ const RegisterPage = () => {
     setError('');
     setSuccess('');
 
-    // Prepare payload (exclude confirmPassword)
     const payload = {
       fullName: formData.fullName.trim(),
       username: formData.username.trim(),
@@ -166,21 +97,18 @@ const RegisterPage = () => {
     };
 
     try {
-      // Send real registration request to backend
       const result = await register(payload);
 
       if (result.success) {
-        setSuccess('Account created successfully! Redirecting to your dashboard...');
+        setSuccess('Account created successfully. Redirecting to your dashboard...');
         setTimeout(() => {
           const landingPath = getLandingPath(result.data.frontendRole);
           navigate(landingPath, { replace: true });
-        }, 1500);
+        }, 1200);
       } else {
         setError(result.error);
       }
     } catch (err) {
-      // Surface real backend errors
-      console.error('Registration request failed:', err);
       const backendMsg = err?.response?.data?.message;
       setError(backendMsg || 'Registration failed. Please check your connection and try again.');
     } finally {
@@ -189,240 +117,303 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4 py-12">
-      {/* Background Glow */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl" />
-      </div>
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-5xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-900">
+        
+        {/* Left Side: Graduation Hero Visual with Navy Vignette (Desktop only) */}
+        <div className="lg:col-span-5 relative hidden lg:block overflow-hidden min-h-[640px]">
+          <img
+            src="/images/uniassist-graduation-hero.jpg"
+            alt="University campus and graduates"
+            className="w-full h-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent to-slate-900/90" />
 
-      <div className="relative w-full max-w-lg space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-3xl mx-auto shadow-xl shadow-indigo-500/25">
-            🎓
-          </div>
-          <div>
-            <h1 className="text-3xl font-extrabold text-white tracking-tight">
-              Create <span className="text-indigo-400 font-light">Account</span>
-            </h1>
-            <p className="text-slate-400 text-sm mt-1">
-              Register to access the UniHelp Desk support portal
+          <div className="absolute bottom-8 left-8 right-8 z-10 space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold uppercase tracking-wider backdrop-blur-sm">
+              <LifeBuoy className="w-3.5 h-3.5" />
+              <span>Campus Service Portal</span>
+            </div>
+            <h2 className="text-2xl font-bold text-white tracking-tight leading-snug">
+              Join the Campus Community
+            </h2>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Register as a student or lecturer to submit support requests, track resolution milestones, and communicate with university service departments.
             </p>
+            <div className="pt-2 flex items-center gap-4 text-xs text-slate-400">
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-blue-400" /> IT Services</span>
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-blue-400" /> Maintenance</span>
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-blue-400" /> Security</span>
+            </div>
           </div>
         </div>
 
-        {/* Registration Card */}
-        <div className="bg-slate-800/90 border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5">
-
-          {/* Error Alert */}
-          {error && (
-            <div className="p-4 rounded-xl text-xs font-medium bg-rose-500/10 border border-rose-500/30 text-rose-300 flex items-center gap-2">
-              <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Success Alert */}
-          {success && (
-            <div className="p-4 rounded-xl text-xs font-medium bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center gap-2">
-              <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>{success}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Row 1: Full Name + Username */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <InputField
-                label="Full Name"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                placeholder="e.g. Kasun Kalhara"
-                icon={UserIcon}
-                required
-                autoComplete="name"
-              />
-              <InputField
-                label="Username"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                placeholder="e.g. kasun_k"
-                icon={UserIcon}
-                required
-                autoComplete="username"
-              />
-            </div>
-
-            {/* Row 2: Email */}
-            <InputField
-              label="University Email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="student@sliit.lk"
-              icon={EmailIcon}
-              required
-              autoComplete="email"
-            />
-
-            {/* Row 3: Phone Number */}
-            <InputField
-              label="Phone Number"
-              name="phoneNumber"
-              type="tel"
-              value={formData.phoneNumber}
-              onChange={handleChange}
-              placeholder="+94-77-123-4567 (Optional)"
-              icon={PhoneIcon}
-              autoComplete="tel"
-            />
-
-            {/* Row 4: Password + Confirm */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <InputField
-                label="Password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Min 8 characters"
-                icon={LockIcon}
-                required
-                autoComplete="new-password"
-                passwordVisible={showPassword}
-                onTogglePassword={() => setShowPassword((visible) => !visible)}
-              />
-              <InputField
-                label="Confirm Password"
-                name="confirmPassword"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                placeholder="Re-enter password"
-                icon={LockIcon}
-                required
-                autoComplete="new-password"
-                passwordVisible={showConfirmPassword}
-                onTogglePassword={() => setShowConfirmPassword((visible) => !visible)}
-              />
-            </div>
-
-            {/* Password Security Checklist */}
-            {formData.password && (
-              <div className="bg-slate-900/80 border border-slate-700/60 rounded-xl p-3.5 space-y-1.5 animate-in fade-in duration-200">
-                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-                  <span>Password Security Requirements</span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    isPasswordStrong ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
-                  }`}>
-                    {isPasswordStrong ? '✓ Strong Password' : 'Incomplete'}
+        {/* Right Side: Registration Form */}
+        <div className="lg:col-span-7 p-6 sm:p-10 flex flex-col justify-center bg-slate-900/95 overflow-y-auto max-h-[90vh]">
+          <div className="space-y-5 max-w-lg w-full mx-auto">
+            {/* Header */}
+            <div>
+              <Link to="/" className="inline-flex items-center gap-2.5 mb-4 group focus:outline-none">
+                <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 group-hover:bg-blue-600/30 transition">
+                  <LifeBuoy className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-base text-white tracking-tight block">
+                    UniAssist <span className="text-blue-400 font-normal">360</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold block">
+                    University Support Portal
                   </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
-                  {passwordRules.map((rule, idx) => (
-                    <div key={idx} className={`flex items-center gap-1.5 transition-colors ${
-                      rule.met ? 'text-emerald-400' : 'text-slate-500'
-                    }`}>
-                      <span className="text-xs font-bold">{rule.met ? '✓' : '○'}</span>
-                      <span className="text-[11px]">{rule.label}</span>
-                    </div>
-                  ))}
-                </div>
+              </Link>
+              <h1 className="text-2xl font-bold text-white tracking-tight">Create Account</h1>
+              <p className="text-xs text-slate-400 mt-1">
+                Enter your details to register for university help desk access
+              </p>
+            </div>
+
+            {/* Error Banner */}
+            {error && (
+              <div className="p-3.5 rounded-xl text-xs font-medium bg-rose-500/10 border border-rose-500/30 text-rose-300 flex items-center gap-2.5 animate-in fade-in duration-150">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
-            {/* Row 5: Role Selection */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
-                Account Type <span className="text-rose-400">*</span>
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { value: 'STUDENT', label: 'Student', icon: '🎓', desc: 'Submit & track tickets' },
-                  { value: 'LECTURER', label: 'Lecturer', icon: '👨‍🏫', desc: 'Submit tickets & faculty requests' },
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setFormData((prev) => ({ ...prev, role: option.value }))}
-                    className={`flex-1 min-w-[140px] p-3 rounded-xl border text-left transition ${
-                      formData.role === option.value
-                        ? 'bg-indigo-600/20 border-indigo-500/50 ring-1 ring-indigo-500/30'
-                        : 'bg-slate-900/60 border-slate-700/50 hover:border-slate-600'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{option.icon}</span>
-                      <div>
-                        <div className={`text-xs font-bold ${formData.role === option.value ? 'text-indigo-300' : 'text-slate-300'}`}>
-                          {option.label}
-                        </div>
-                        <div className="text-[10px] text-slate-500">{option.desc}</div>
-                      </div>
-                      {formData.role === option.value && (
-                        <svg className="w-4 h-4 text-indigo-400 ml-auto" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </div>
-                  </button>
-                ))}
+            {/* Success Banner */}
+            {success && (
+              <div className="p-3.5 rounded-xl text-xs font-medium bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center gap-2.5 animate-in fade-in duration-150">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{success}</span>
               </div>
-            </div>
+            )}
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading || !!success || !isPasswordStrong}
-              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-            >
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Creating Account...</span>
-                </>
-              ) : success ? (
-                <>
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  <span>Redirecting...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                  </svg>
-                  <span>Create Account</span>
-                </>
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Account Type Selection */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  Account Type <span className="text-rose-400">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: 'STUDENT', label: 'Student', icon: GraduationCap, desc: 'Submit & track tickets' },
+                    { value: 'LECTURER', label: 'Lecturer', icon: BookOpen, desc: 'Faculty & classroom support' },
+                  ].map((option) => {
+                    const Icon = option.icon;
+                    const isSelected = formData.role === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, role: option.value }))}
+                        className={`p-3 rounded-xl border text-left transition flex items-start gap-3 ${
+                          isSelected
+                            ? 'bg-blue-600/15 border-blue-500/50 ring-1 ring-blue-500/40'
+                            : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className={`p-2 rounded-lg shrink-0 ${isSelected ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className={`text-xs font-bold ${isSelected ? 'text-blue-300' : 'text-slate-200'}`}>
+                            {option.label}
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5 leading-snug">{option.desc}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Full Name & Username */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Full Name <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      name="fullName"
+                      value={formData.fullName}
+                      onChange={handleChange}
+                      placeholder="e.g. Kasun Kalhara"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition"
+                      required
+                      autoComplete="name"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Username <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      name="username"
+                      value={formData.username}
+                      onChange={handleChange}
+                      placeholder="e.g. kasun_k"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition"
+                      required
+                      autoComplete="username"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Email & Phone */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    University Email <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      placeholder="student@sliit.lk"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition"
+                      required
+                      autoComplete="email"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Phone Number <span className="text-slate-500 font-normal lowercase">(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="tel"
+                      name="phoneNumber"
+                      value={formData.phoneNumber}
+                      onChange={handleChange}
+                      placeholder="+94-77-123-4567"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition"
+                      autoComplete="tel"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Password & Confirm */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Password <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      placeholder="Min 8 characters"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition"
+                      required
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Confirm Password <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      placeholder="Re-enter password"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition"
+                      required
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Password Security Checklist */}
+              {formData.password && (
+                <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 space-y-1.5 animate-in fade-in duration-150">
+                  <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                    <span>Password Security Policy</span>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                      isPasswordStrong ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                    }`}>
+                      {isPasswordStrong ? 'Policy Satisfied' : 'Requirements Incomplete'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]">
+                    {passwordRules.map((rule, idx) => (
+                      <div key={idx} className={`flex items-center gap-1.5 ${
+                        rule.met ? 'text-emerald-400' : 'text-slate-500'
+                      }`}>
+                        <Check className={`w-3 h-3 ${rule.met ? 'text-emerald-400' : 'opacity-20'}`} />
+                        <span>{rule.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
-            </button>
 
-            {/* Sign In Link */}
-            <p className="text-center text-xs text-slate-400 pt-1">
-              Already have an account?{' '}
-              <Link to="/login" className="text-indigo-400 font-semibold hover:text-indigo-300 hover:underline transition">
-                Sign In
-              </Link>
-            </p>
-          </form>
+              {/* Submit Button */}
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                loading={loading}
+                disabled={loading || !!success || !isPasswordStrong}
+                className="w-full justify-center mt-2"
+              >
+                {success ? 'Account Created' : 'Create Account'}
+              </Button>
+
+              {/* Sign In Link */}
+              <p className="text-center text-xs text-slate-400 pt-1">
+                Already registered with UniAssist 360?{' '}
+                <Link to="/login" className="text-blue-400 font-semibold hover:text-blue-300 transition">
+                  Sign in here
+                </Link>
+              </p>
+            </form>
+          </div>
         </div>
-
-        {/* Footer */}
-        <p className="text-center text-[10px] text-slate-600 mt-4">
-          UniAssist 360 • University Help Desk System
-        </p>
       </div>
     </div>
   );
-};
-
-export default RegisterPage;
+}

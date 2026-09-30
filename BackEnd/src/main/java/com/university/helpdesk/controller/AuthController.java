@@ -87,7 +87,7 @@ public class AuthController {
         user.setStatus("ACTIVE");
 
         User savedUser = userRepository.save(user);
-        log.info("✅ New user registered successfully — ID: {}, username: '{}', email: '{}', role: {}",
+        log.info("New user registered successfully — ID: {}, username: '{}', email: '{}', role: {}",
                 savedUser.getId(), savedUser.getUsername(), savedUser.getEmail(), savedUser.getRole());
         String token = jwtUtils.generateToken(savedUser);
 

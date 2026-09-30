@@ -1,5 +1,29 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+  Lock,
+  RefreshCw,
+  Edit3,
+  Trash2,
+  XCircle,
+  Paperclip,
+  Upload,
+  FileText,
+  Image as ImageIcon,
+  File,
+  History,
+  Star,
+  MessageSquare,
+  Send,
+  X,
+  ShieldAlert,
+  Download,
+  UserCheck,
+  Play
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import CSATModal from './CSATModal';
 
@@ -226,7 +250,7 @@ export default function TicketDetails({ ticketId, onBack }) {
     try {
       const res = await axios.put(`${API}/tickets/${ticketId}/claim`);
       setTicket(res.data);
-      setStatusMsg('✅ Ticket claimed! You are now working on this ticket.');
+      setStatusMsg('Ticket claimed! You are now working on this ticket.');
       fetchAssignmentHistory();
     } catch (err) {
       setStatusMsg('Failed to claim ticket: ' + getApiErrorMessage(err));
@@ -283,7 +307,7 @@ export default function TicketDetails({ ticketId, onBack }) {
     try {
       const res = await axios.put(`${API}/tickets/${ticketId}/confirm`);
       setTicket(res.data);
-      setStatusMsg('✅ Resolution confirmed! Ticket has been closed.');
+      setStatusMsg('Resolution confirmed! Ticket has been closed.');
       if (!myFeedback) {
         setCsatMode('create');
         setTimeout(() => setShowCsatModal(true), 400);
@@ -301,7 +325,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       setTicket(res.data);
       setShowReopenModal(false);
       setReopenReason('');
-      setStatusMsg('🔄 Ticket reopened successfully.');
+      setStatusMsg('Ticket reopened successfully.');
       fetchComments();
     } catch (err) {
       setStatusMsg('Failed to reopen ticket: ' + getApiErrorMessage(err));
@@ -358,7 +382,7 @@ export default function TicketDetails({ ticketId, onBack }) {
       const res = await axios.put(`${API}/tickets/${ticketId}`, editFormData);
       setTicket(res.data);
       setShowEditModal(false);
-      setStatusMsg('✅ Ticket updated successfully.');
+      setStatusMsg('Ticket updated successfully.');
     } catch (err) {
       setStatusMsg('Failed to update ticket: ' + getApiErrorMessage(err));
     }
@@ -431,16 +455,17 @@ export default function TicketDetails({ ticketId, onBack }) {
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Back Button */}
       <button onClick={onBack}
-        className="flex items-center gap-2 text-sm text-slate-400 hover:text-indigo-300 transition">
-        ← Back to Tickets
+        className="flex items-center gap-2 text-sm text-slate-400 hover:text-sky-300 transition">
+        <ArrowLeft className="w-4 h-4" />
+        <span>Back to Tickets</span>
       </button>
 
-      {/* ── Ticket Header Card ── */}
+      {/* Ticket Header Card */}
       <div className="bg-slate-800/90 border border-slate-700/70 rounded-2xl p-6 shadow-xl backdrop-blur-md space-y-5">
 
         {/* Top row: number + badges */}
         <div className="flex flex-wrap gap-3 items-start justify-between">
-          <span className="font-mono text-xs font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-lg">
+          <span className="font-mono text-xs font-bold text-sky-400 bg-sky-500/10 border border-sky-500/20 px-3 py-1 rounded-lg">
             {ticket.ticketNumber}
           </span>
           <div className="flex gap-2 flex-wrap">
@@ -460,7 +485,7 @@ export default function TicketDetails({ ticketId, onBack }) {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-700/50 text-xs text-slate-400">
           <div>
             <div className="text-slate-500 uppercase tracking-wider mb-1">Technical Department</div>
-            <div className="text-slate-200 font-semibold text-sm text-indigo-300">
+            <div className="text-slate-200 font-semibold text-sm text-sky-300">
               {ticket.department || <span className="text-slate-500 italic font-normal">Awaiting routing</span>}
             </div>
           </div>
@@ -513,7 +538,7 @@ export default function TicketDetails({ ticketId, onBack }) {
               <select
                 value={selectedRouteDepartment}
                 onChange={(e) => setSelectedRouteDepartment(e.target.value)}
-                className="bg-slate-900 border border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="bg-slate-900 border border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500"
               >
                 <option value="IT">IT</option>
                 <option value="Maintenance">Maintenance</option>
@@ -521,7 +546,7 @@ export default function TicketDetails({ ticketId, onBack }) {
               </select>
               <button
                 onClick={handleRouteTicket}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition"
+                className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-lg transition"
               >
                 Route Ticket
               </button>
@@ -542,9 +567,9 @@ export default function TicketDetails({ ticketId, onBack }) {
                     setSelectedReassignAgentId(val);
                     if (val) handleReassignTicket(val);
                   }}
-                  className="bg-slate-900 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="bg-slate-900 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500"
                 >
-                  <option value="">👤 {ticket.assignedTo ? 'Reassign Agent...' : 'Assign Agent...'}</option>
+                  <option value="">{ticket.assignedTo ? 'Reassign Agent...' : 'Assign Agent...'}</option>
                   {availableAgents.map((ag) => (
                     <option key={ag.id} value={ag.id}>
                       {ag.fullName || ag.username} {ag.department ? `(${ag.department})` : ''}
@@ -560,7 +585,8 @@ export default function TicketDetails({ ticketId, onBack }) {
                 onClick={handleClaimTicket}
                 className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-md shadow-emerald-500/20"
               >
-                ▶ Claim Ticket
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>Claim Ticket</span>
               </button>
             )}
 
@@ -568,9 +594,10 @@ export default function TicketDetails({ ticketId, onBack }) {
             {ticket.status === 'OPEN' && isMine && (
               <button
                 onClick={() => changeStatus('IN_PROGRESS')}
-                className="px-3.5 py-1.5 bg-blue-600/80 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5"
+                className="px-3.5 py-1.5 bg-sky-600/80 hover:bg-sky-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5"
               >
-                ▶ Start Progress
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Start Progress</span>
               </button>
             )}
 
@@ -580,7 +607,8 @@ export default function TicketDetails({ ticketId, onBack }) {
                 onClick={() => setShowResolveInput(true)}
                 className="px-3.5 py-1.5 bg-purple-600/80 hover:bg-purple-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5"
               >
-                ✅ Resolve Ticket
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Resolve Ticket</span>
               </button>
             )}
 
@@ -588,9 +616,10 @@ export default function TicketDetails({ ticketId, onBack }) {
             {ticket.status === 'RESOLVED' && (isTeamLead || isAdmin) && (
               <button
                 onClick={() => changeStatus('CLOSED')}
-                className="px-3 py-1.5 bg-slate-600/80 hover:bg-slate-500 text-white text-xs font-semibold rounded-lg transition"
+                className="px-3 py-1.5 bg-slate-600/80 hover:bg-slate-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5"
               >
-                🔒 Close
+                <Lock className="w-3.5 h-3.5" />
+                <span>Close</span>
               </button>
             )}
 
@@ -598,9 +627,10 @@ export default function TicketDetails({ ticketId, onBack }) {
             {['RESOLVED', 'CLOSED'].includes(ticket.status) && (isTeamLead || isAdmin) && (
               <button
                 onClick={() => setShowReopenModal(true)}
-                className="px-3 py-1.5 bg-amber-600/80 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg transition"
+                className="px-3 py-1.5 bg-amber-600/80 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5"
               >
-                🔄 Reopen
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Reopen</span>
               </button>
             )}
           </div>
@@ -611,15 +641,17 @@ export default function TicketDetails({ ticketId, onBack }) {
           <div className="pt-3 border-t border-slate-700/50 flex flex-wrap gap-2">
             <button
               onClick={openEditModal}
-              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-md shadow-indigo-500/20"
+              className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-md shadow-sky-500/20"
             >
-              ✏️ Edit Ticket
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Edit Ticket</span>
             </button>
             <button
               onClick={handleCancelTicket}
               className="px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold rounded-lg transition flex items-center gap-1.5"
             >
-              ⏸️ Cancel Ticket
+              <XCircle className="w-3.5 h-3.5" />
+              <span>Cancel Ticket</span>
             </button>
           </div>
         )}
@@ -663,7 +695,8 @@ export default function TicketDetails({ ticketId, onBack }) {
             <div className="bg-rose-950/20 border border-rose-500/30 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
                 <div className="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
-                  <span>⚠️</span> Emergency Administrative Maintenance
+                  <ShieldAlert className="w-4 h-4 text-rose-400" />
+                  <span>Emergency Administrative Maintenance</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Permanently purge this ticket, assignment logs, internal notes, attachments, and ratings. This operation is strictly irreversible.
@@ -674,18 +707,21 @@ export default function TicketDetails({ ticketId, onBack }) {
                 className="px-3.5 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 hover:text-white border border-rose-500/50 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shrink-0"
                 title="Permanently purge ticket and associated data"
               >
-                🗑️ Permanently Purge Ticket
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Permanently Purge Ticket</span>
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* ── Attachments Subsystem Card ── */}
+      {/* Attachments Subsystem Card */}
       <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 shadow-xl space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <span className="text-2xl">📎</span>
+            <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+              <Paperclip className="w-4 h-4" />
+            </div>
             <div>
               <h3 className="text-base font-bold text-white">
                 Ticket Attachments ({attachments.length})
@@ -697,8 +733,9 @@ export default function TicketDetails({ ticketId, onBack }) {
           </div>
 
           {canUploadAttachment && (
-            <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md transition disabled:opacity-50">
-              <span>{uploadingAttachment ? '⏳ Uploading...' : '➕ Upload File'}</span>
+            <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-xl shadow-md transition disabled:opacity-50">
+              <Upload className="w-3.5 h-3.5" />
+              <span>{uploadingAttachment ? 'Uploading...' : 'Upload File'}</span>
               <input
                 type="file"
                 multiple
@@ -712,8 +749,9 @@ export default function TicketDetails({ ticketId, onBack }) {
         </div>
 
         {attachmentError && (
-          <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-lg">
-            ⚠️ {attachmentError}
+          <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            <span>{attachmentError}</span>
           </p>
         )}
 
@@ -736,13 +774,15 @@ export default function TicketDetails({ ticketId, onBack }) {
                   className="bg-slate-900/80 border border-slate-700/60 rounded-xl p-3.5 flex flex-col justify-between gap-2 hover:border-slate-600 transition group"
                 >
                   <div className="flex items-start gap-2.5 min-w-0">
-                    <span className="text-xl mt-0.5">
-                      {att.contentType?.startsWith('image/')
-                        ? '🖼️'
-                        : att.contentType?.includes('pdf')
-                        ? '📄'
-                        : '📁'}
-                    </span>
+                    <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700/80 flex items-center justify-center text-slate-300 shrink-0">
+                      {att.contentType?.startsWith('image/') ? (
+                        <ImageIcon className="w-4 h-4 text-sky-400" />
+                      ) : att.contentType?.includes('pdf') ? (
+                        <FileText className="w-4 h-4 text-rose-400" />
+                      ) : (
+                        <File className="w-4 h-4 text-slate-400" />
+                      )}
+                    </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-semibold text-slate-200 truncate" title={att.originalFileName}>
                         {att.originalFileName}
@@ -756,17 +796,18 @@ export default function TicketDetails({ ticketId, onBack }) {
                   <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[11px]">
                     <button
                       onClick={() => handleDownloadAttachment(att.id, att.originalFileName)}
-                      className="text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition"
+                      className="text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-1 transition"
                     >
-                      ⬇️ Download
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download</span>
                     </button>
                     {canDelete && (
                       <button
                         onClick={() => handleDeleteAttachment(att.id)}
-                        className="text-rose-400 hover:text-rose-300 transition"
+                        className="text-rose-400 hover:text-rose-300 p-1 rounded hover:bg-rose-500/10 transition"
                         title="Delete file"
                       >
-                        🗑️
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
@@ -777,12 +818,13 @@ export default function TicketDetails({ ticketId, onBack }) {
         )}
       </div>
 
-      {/* ── Assignment & Ownership History Timeline ── */}
+      {/* Assignment & Ownership History Timeline */}
       {assignmentHistory.length > 0 && (
         <div className="bg-slate-800/90 border border-slate-700/70 rounded-2xl p-6 shadow-xl backdrop-blur-md space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              📜 Assignment &amp; Ownership History
+              <History className="w-5 h-5 text-sky-400" />
+              <span>Assignment &amp; Ownership History</span>
               <span className="text-xs font-normal bg-slate-700/60 text-slate-400 px-2 py-0.5 rounded-full ml-1">
                 {assignmentHistory.length} {assignmentHistory.length === 1 ? 'event' : 'events'}
               </span>
@@ -793,23 +835,17 @@ export default function TicketDetails({ ticketId, onBack }) {
             {assignmentHistory.map((item) => {
               const actionColors = {
                 CLAIMED: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40',
-                ASSIGNED: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40',
+                ASSIGNED: 'bg-sky-500/20 text-sky-400 border-sky-500/40',
                 REASSIGNED: 'bg-amber-500/20 text-amber-400 border-amber-500/40',
                 ROUTED: 'bg-purple-500/20 text-purple-400 border-purple-500/40',
               };
-              const actionIcons = {
-                CLAIMED: '✋',
-                ASSIGNED: '👉',
-                REASSIGNED: '🔄',
-                ROUTED: '🔀',
-              };
               return (
                 <div key={item.id} className="relative group">
-                  <div className="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-slate-900 border-2 border-indigo-500 group-hover:scale-125 transition" />
+                  <div className="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-slate-900 border-2 border-sky-500 group-hover:scale-125 transition" />
                   <div className="bg-slate-900/60 border border-slate-700/50 rounded-xl p-3.5 space-y-1.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${actionColors[item.action] || 'bg-slate-700 text-slate-300 border-slate-600'}`}>
-                        {actionIcons[item.action] || '•'} {item.action}
+                        {item.action}
                       </span>
                       <span className="text-[11px] text-slate-500">{fmt(item.changedAt)}</span>
                     </div>
@@ -841,12 +877,12 @@ export default function TicketDetails({ ticketId, onBack }) {
         </div>
       )}
 
-      {/* ── Resolution Verification Banner (For ticket creator when ticket is RESOLVED) ── */}
+      {/* Resolution Verification Banner (For ticket creator when ticket is RESOLVED) */}
       {isTicketCreator && ticket.status === 'RESOLVED' && (
         <div className="bg-gradient-to-r from-purple-900/30 via-slate-800/90 to-indigo-900/30 border border-purple-500/40 rounded-2xl p-6 shadow-xl space-y-4">
           <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-xl flex-shrink-0 mt-0.5">
-              ⚖️
+            <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 flex-shrink-0 mt-0.5">
+              <CheckCircle2 className="w-5 h-5" />
             </div>
             <div className="flex-1">
               <h3 className="text-base font-bold text-white">Verify Ticket Resolution</h3>
@@ -861,19 +897,21 @@ export default function TicketDetails({ ticketId, onBack }) {
               onClick={handleConfirmResolution}
               className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition flex items-center gap-2"
             >
-              ✅ Confirm Resolution & Close
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Confirm Resolution & Close</span>
             </button>
             <button
               onClick={() => setShowReopenModal(true)}
               className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold rounded-xl border border-amber-500/30 transition flex items-center gap-2"
             >
-              🔄 Reopen Ticket
+              <RefreshCw className="w-4 h-4" />
+              <span>Reopen Ticket</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Ticket Closed - Creator Reopen Option ── */}
+      {/* Ticket Closed - Creator Reopen Option */}
       {isTicketCreator && ticket.status === 'CLOSED' && (
         <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
           <div>
@@ -884,17 +922,20 @@ export default function TicketDetails({ ticketId, onBack }) {
             onClick={() => setShowReopenModal(true)}
             className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-amber-300 text-xs font-bold rounded-xl border border-amber-500/30 transition flex items-center gap-2 flex-shrink-0"
           >
-            🔄 Reopen Ticket
+            <RefreshCw className="w-4 h-4" />
+            <span>Reopen Ticket</span>
           </button>
         </div>
       )}
 
-      {/* ── Submitted CSAT Feedback Card ── */}
+      {/* Submitted CSAT Feedback Card */}
       {myFeedback && (
         <div className="bg-slate-800/90 border border-emerald-500/30 rounded-2xl p-6 shadow-xl space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <span className="text-2xl">⭐</span>
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <Star className="w-4 h-4 fill-amber-400" />
+              </div>
               <div>
                 <h3 className="text-base font-bold text-white">Your Service Rating</h3>
                 <p className="text-xs text-slate-400">Feedback submitted for this ticket's resolution</p>
@@ -910,27 +951,33 @@ export default function TicketDetails({ ticketId, onBack }) {
                   }}
                   className="px-3 py-1.5 bg-slate-700/80 hover:bg-slate-600 text-slate-200 text-xs font-semibold rounded-lg border border-slate-600 transition flex items-center gap-1.5"
                 >
-                  ✏️ Edit Feedback
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit Feedback</span>
                 </button>
                 <button
                   onClick={handleWithdrawFeedback}
                   className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold rounded-lg border border-rose-500/30 transition flex items-center gap-1.5"
                 >
-                  🗑️ Withdraw
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Withdraw</span>
                 </button>
               </div>
             ) : (
-              <span className="text-xs text-slate-500 italic bg-slate-900/60 px-2.5 py-1 rounded-lg">
-                🔒 Rating locked (24-hour edit window expired)
+              <span className="text-xs text-slate-500 italic bg-slate-900/60 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                <Lock className="w-3 h-3" />
+                <span>Rating locked (24-hour edit window expired)</span>
               </span>
             )}
           </div>
 
           <div className="bg-slate-900/80 rounded-xl p-4 border border-slate-700/60 space-y-2">
             <div className="flex items-center gap-2">
-              <div className="flex text-amber-400 text-lg">
+              <div className="flex text-amber-400 gap-0.5">
                 {[1, 2, 3, 4, 5].map((star) => (
-                  <span key={star}>{star <= myFeedback.rating ? '★' : '☆'}</span>
+                  <Star
+                    key={star}
+                    className={`w-4 h-4 ${star <= myFeedback.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-600'}`}
+                  />
                 ))}
               </div>
               <span className="text-xs font-bold text-slate-300 ml-1">
@@ -949,10 +996,11 @@ export default function TicketDetails({ ticketId, onBack }) {
         </div>
       )}
 
-      {/* ── Comment Thread ── */}
+      {/* Comment Thread */}
       <div className="bg-slate-800/90 border border-slate-700/70 rounded-2xl p-6 shadow-xl backdrop-blur-md space-y-5">
         <h2 className="text-lg font-bold text-white flex items-center gap-2">
-          💬 Discussion Thread
+          <MessageSquare className="w-5 h-5 text-sky-400" />
+          <span>Discussion Thread</span>
           <span className="text-xs font-normal bg-slate-700/60 text-slate-400 px-2 py-0.5 rounded-full ml-1">
             {comments.filter(c => !c.isInternal || isAgent).length} {comments.filter(c => !c.isInternal || isAgent).length === 1 ? 'reply' : 'replies'}
           </span>
@@ -967,7 +1015,7 @@ export default function TicketDetails({ ticketId, onBack }) {
           )}
           {comments.filter(c => !c.isInternal || isAgent).map(c => (
             <div key={c.id} className="flex gap-3 group">
-              <div className="w-9 h-9 rounded-full bg-indigo-600/80 text-white flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">
+              <div className="w-9 h-9 rounded-full bg-sky-600/80 text-white flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">
                 {(c.author?.fullName || c.author?.username || 'U')[0].toUpperCase()}
               </div>
               <div className={`flex-1 rounded-xl px-4 py-3 border ${c.isInternal ? 'bg-amber-950/20 border-amber-500/40' : 'bg-slate-900/60 border-slate-700/50'}`}>
@@ -977,7 +1025,10 @@ export default function TicketDetails({ ticketId, onBack }) {
                     {c.author?.role?.replace('_', ' ')}
                   </span>
                   {c.isInternal && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">🔒 Staff Internal Note</span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 flex items-center gap-1">
+                      <Lock className="w-2.5 h-2.5" />
+                      <span>Staff Internal Note</span>
+                    </span>
                   )}
                   <span className="text-xs text-slate-500 ml-auto">{fmt(c.createdAt)}</span>
                 </div>
@@ -991,7 +1042,7 @@ export default function TicketDetails({ ticketId, onBack }) {
         {isAuthenticated ? (
           <form onSubmit={postComment} className="space-y-3 pt-2 border-t border-slate-700/50">
             <div className="flex gap-3">
-              <div className="w-9 h-9 rounded-full bg-indigo-600/80 text-white flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">
+              <div className="w-9 h-9 rounded-full bg-sky-600/80 text-white flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">
                 {(user?.fullName || user?.username || 'U')[0].toUpperCase()}
               </div>
               <textarea
@@ -999,7 +1050,7 @@ export default function TicketDetails({ ticketId, onBack }) {
                 onChange={e => setCommentText(e.target.value)}
                 placeholder={isInternalNote ? "Write an internal staff note (visible only to support agents)..." : "Write a reply..."}
                 rows={3}
-                className={`flex-1 bg-slate-900/90 border rounded-xl px-4 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 text-sm transition resize-none ${isInternalNote ? 'border-amber-500/60 focus:ring-amber-500/50' : 'border-slate-700 focus:ring-indigo-500/50'}`}
+                className={`flex-1 bg-slate-900/90 border rounded-xl px-4 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 text-sm transition resize-none ${isInternalNote ? 'border-amber-500/60 focus:ring-amber-500/50' : 'border-slate-700 focus:ring-sky-500/50'}`}
               />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1011,17 +1062,25 @@ export default function TicketDetails({ ticketId, onBack }) {
                     onChange={e => setIsInternalNote(e.target.checked)}
                     className="rounded border-slate-700 text-amber-500 focus:ring-amber-500 bg-slate-900"
                   />
-                  <span>🔒 Post as internal staff note (hidden from student)</span>
+                  <span className="flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-amber-400" />
+                    <span>Post as internal staff note (hidden from student)</span>
+                  </span>
                 </label>
               ) : <div />}
               <button type="submit" disabled={submitting || !commentText.trim()}
-                className={`px-5 py-2 disabled:opacity-40 text-white text-sm font-semibold rounded-xl transition flex items-center gap-2 ${isInternalNote ? 'bg-amber-600 hover:bg-amber-500' : 'bg-indigo-600 hover:bg-indigo-500'}`}>
+                className={`px-5 py-2 disabled:opacity-40 text-white text-sm font-semibold rounded-xl transition flex items-center gap-2 ${isInternalNote ? 'bg-amber-600 hover:bg-amber-500' : 'bg-sky-600 hover:bg-sky-500'}`}>
                 {submitting ? (
                   <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                       d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
-                ) : isInternalNote ? '🔒' : '✉️'} {isInternalNote ? 'Post Internal Note' : 'Post Reply'}
+                ) : isInternalNote ? (
+                  <Lock className="w-3.5 h-3.5" />
+                ) : (
+                  <Send className="w-3.5 h-3.5" />
+                )}
+                <span>{isInternalNote ? 'Post Internal Note' : 'Post Reply'}</span>
               </button>
             </div>
           </form>
@@ -1032,25 +1091,27 @@ export default function TicketDetails({ ticketId, onBack }) {
         )}
       </div>
 
-      {/* ── CSAT Banner (for submitter, when ticket is already RESOLVED) ── */}
+      {/* CSAT Banner (for submitter, when ticket is already RESOLVED) */}
       {submitterSeesResolved && (
         <div className="bg-gradient-to-r from-amber-900/30 via-slate-800/80 to-orange-900/30 border border-amber-500/30 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">⭐</span>
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+              <Star className="w-5 h-5 fill-amber-400" />
+            </div>
             <div>
-              <div className="text-sm font-bold text-amber-300">Your ticket has been resolved!</div>
+              <div className="text-sm font-bold text-amber-300">Your ticket has been resolved</div>
               <div className="text-xs text-slate-400">Share your feedback to help us improve our support service.</div>
             </div>
           </div>
           <button
             onClick={() => setShowCsatModal(true)}
             className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-900 text-sm font-bold rounded-xl transition shadow-md whitespace-nowrap">
-            Rate Your Experience →
+            Rate Your Experience
           </button>
         </div>
       )}
 
-      {/* ── CSAT Modal ── */}
+      {/* CSAT Modal */}
       {showCsatModal && ticket && (
         <CSATModal
           ticket={ticket}
@@ -1061,19 +1122,20 @@ export default function TicketDetails({ ticketId, onBack }) {
           onSubmitted={(rating, savedFb) => {
             setMyFeedback(savedFb);
             setCsatSubmitted(true);
-            setStatusMsg(`✅ Thank you! Your ${rating}★ rating has been recorded.`);
+            setStatusMsg(`Thank you! Your ${rating}-star rating has been recorded.`);
           }}
         />
       )}
 
-      {/* ── Edit Ticket Modal (Creator on OPEN ticket) ── */}
+      {/* Edit Ticket Modal (Creator on OPEN ticket) */}
       {showEditModal && ticket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
           <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in duration-200">
             <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>✏️ Edit Ticket</span>
-                <span className="text-xs font-mono text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                <Edit3 className="w-4 h-4 text-sky-400" />
+                <span>Edit Ticket</span>
+                <span className="text-xs font-mono text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
                   {ticket.ticketNumber}
                 </span>
               </h3>
@@ -1081,7 +1143,7 @@ export default function TicketDetails({ ticketId, onBack }) {
                 onClick={() => setShowEditModal(false)}
                 className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -1095,7 +1157,7 @@ export default function TicketDetails({ ticketId, onBack }) {
                   required
                   value={editFormData.title}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50"
                 />
               </div>
 
@@ -1108,7 +1170,7 @@ export default function TicketDetails({ ticketId, onBack }) {
                   required
                   value={editFormData.description}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50 resize-none"
                 />
               </div>
 
@@ -1120,7 +1182,7 @@ export default function TicketDetails({ ticketId, onBack }) {
                   <select
                     value={editFormData.categoryId}
                     onChange={(e) => setEditFormData(prev => ({ ...prev, categoryId: e.target.value }))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50"
                   >
                     {CATEGORIES.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
@@ -1135,7 +1197,7 @@ export default function TicketDetails({ ticketId, onBack }) {
                   <select
                     value={editFormData.priority}
                     onChange={(e) => setEditFormData(prev => ({ ...prev, priority: e.target.value }))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50"
                   >
                     <option value="LOW">LOW</option>
                     <option value="MEDIUM">MEDIUM</option>
@@ -1154,7 +1216,7 @@ export default function TicketDetails({ ticketId, onBack }) {
                   value={editFormData.location}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, location: e.target.value }))}
                   placeholder="e.g. Lab 03, Library Floor 2"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50"
                 />
               </div>
 
@@ -1168,7 +1230,7 @@ export default function TicketDetails({ ticketId, onBack }) {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition shadow-lg shadow-indigo-500/20"
+                  className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-xl transition shadow-lg shadow-sky-500/20"
                 >
                   Save Changes
                 </button>
@@ -1178,19 +1240,20 @@ export default function TicketDetails({ ticketId, onBack }) {
         </div>
       )}
 
-      {/* ── Reopen Ticket Modal ── */}
+      {/* Reopen Ticket Modal */}
       {showReopenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
           <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl space-y-4 animate-in fade-in duration-200">
             <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <span>🔄 Reopen Ticket</span>
+                <RefreshCw className="w-4 h-4 text-amber-400" />
+                <span>Reopen Ticket</span>
               </h3>
               <button
                 onClick={() => setShowReopenModal(false)}
                 className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 

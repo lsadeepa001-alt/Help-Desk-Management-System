@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Lock, AlertCircle, GraduationCap, BookOpen, Wrench, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Login = ({ onSuccess, onSwitchToRegister }) => {
@@ -39,8 +40,8 @@ const Login = ({ onSuccess, onSwitchToRegister }) => {
   return (
     <div className="max-w-md mx-auto bg-slate-800/90 border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-6">
       <div className="text-center space-y-2">
-        <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center text-2xl mx-auto">
-          🔐
+        <div className="w-12 h-12 rounded-2xl bg-sky-600/20 border border-sky-500/30 text-sky-400 flex items-center justify-center mx-auto">
+          <Lock className="w-6 h-6" />
         </div>
         <h2 className="text-2xl font-extrabold text-white tracking-tight">Welcome Back</h2>
         <p className="text-slate-400 text-xs">
@@ -50,7 +51,7 @@ const Login = ({ onSuccess, onSwitchToRegister }) => {
 
       {error && (
         <div className="p-4 rounded-xl text-xs font-medium bg-rose-500/10 border border-rose-500/30 text-rose-300 flex items-center gap-2">
-          <span>⚠️</span>
+          <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
@@ -113,30 +114,34 @@ const Login = ({ onSuccess, onSwitchToRegister }) => {
           <button
             type="button"
             onClick={() => fillQuickDemo('std_kamal', '2568')}
-            className="px-2.5 py-1.5 bg-slate-900/80 hover:bg-slate-700/80 text-slate-300 text-[11px] rounded-lg border border-slate-700/50 transition text-left"
+            className="px-2.5 py-1.5 bg-slate-900/80 hover:bg-slate-700/80 text-slate-300 text-[11px] rounded-lg border border-slate-700/50 transition text-left flex items-center gap-1.5"
           >
-            🎓 <span className="font-semibold">Student</span> (std_kamal)
+            <GraduationCap className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <span><span className="font-semibold">Student</span> (std_kamal)</span>
           </button>
           <button
             type="button"
             onClick={() => fillQuickDemo('prof_smith', '2568')}
-            className="px-2.5 py-1.5 bg-slate-900/80 hover:bg-slate-700/80 text-slate-300 text-[11px] rounded-lg border border-slate-700/50 transition text-left"
+            className="px-2.5 py-1.5 bg-slate-900/80 hover:bg-slate-700/80 text-slate-300 text-[11px] rounded-lg border border-slate-700/50 transition text-left flex items-center gap-1.5"
           >
-            👨‍🏫 <span className="font-semibold">Lecturer</span> (prof_smith)
+            <BookOpen className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+            <span><span className="font-semibold">Lecturer</span> (prof_smith)</span>
           </button>
           <button
             type="button"
             onClick={() => fillQuickDemo('itsupport1', '2568')}
-            className="px-2.5 py-1.5 bg-slate-900/80 hover:bg-slate-700/80 text-slate-300 text-[11px] rounded-lg border border-slate-700/50 transition text-left"
+            className="px-2.5 py-1.5 bg-slate-900/80 hover:bg-slate-700/80 text-slate-300 text-[11px] rounded-lg border border-slate-700/50 transition text-left flex items-center gap-1.5"
           >
-            🛠️ <span className="font-semibold">Agent</span> (itsupport1)
+            <Wrench className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <span><span className="font-semibold">Agent</span> (itsupport1)</span>
           </button>
           <button
             type="button"
             onClick={() => fillQuickDemo('admin', '2568')}
-            className="px-2.5 py-1.5 bg-slate-900/80 hover:bg-slate-700/80 text-slate-300 text-[11px] rounded-lg border border-slate-700/50 transition text-left"
+            className="px-2.5 py-1.5 bg-slate-900/80 hover:bg-slate-700/80 text-slate-300 text-[11px] rounded-lg border border-slate-700/50 transition text-left flex items-center gap-1.5"
           >
-            👑 <span className="font-semibold">Admin</span> (admin)
+            <ShieldCheck className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+            <span><span className="font-semibold">Admin</span> (admin)</span>
           </button>
         </div>
       </div>

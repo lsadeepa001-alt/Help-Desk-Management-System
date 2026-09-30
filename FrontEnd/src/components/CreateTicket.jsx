@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import {
+  Lock,
+  Plus,
+  Bot,
+  CheckCircle2,
+  AlertCircle,
+  Paperclip,
+  X,
+  Send,
+} from 'lucide-react';
 
 const API_URL = 'http://localhost:8080/api/tickets';
 
@@ -201,22 +211,22 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
 
   if (!isAuthenticated) {
     return (
-      <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-8 shadow-xl text-center space-y-5 backdrop-blur-md">
-        <div className="text-5xl">🔒</div>
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl text-center space-y-5">
+        <Lock className="w-12 h-12 text-slate-500 mx-auto" />
         <h2 className="text-2xl font-bold text-white tracking-tight">Authentication Required</h2>
-        <p className="text-slate-300 text-sm max-w-md mx-auto leading-relaxed">
+        <p className="text-slate-400 text-xs max-w-md mx-auto leading-relaxed">
           Please sign in to your University account or register to submit technical helpdesk tickets under your profile.
         </p>
         <div className="flex justify-center gap-3 pt-2">
           <button
             onClick={() => onOpenAuth && onOpenAuth('login')}
-            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition shadow-lg shadow-indigo-500/20 text-sm"
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition shadow-lg shadow-blue-500/20 text-xs"
           >
             Sign In
           </button>
           <button
             onClick={() => onOpenAuth && onOpenAuth('register')}
-            className="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-xl transition text-sm"
+            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl transition text-xs border border-slate-700"
           >
             Create Account
           </button>
@@ -226,36 +236,42 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
   }
 
   return (
-    <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-xl backdrop-blur-md space-y-6">
-      <div className="border-b border-slate-700/60 pb-4 flex justify-between items-start gap-4">
+    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+      <div className="border-b border-slate-800 pb-4 flex justify-between items-start gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <span>➕</span> Submit New Ticket
+            <Plus className="w-5 h-5 text-blue-400" />
+            <span>Submit New Ticket</span>
           </h2>
-          <p className="text-slate-400 text-sm mt-1">
-            Submitting as <span className="text-indigo-400 font-semibold">{user.fullName}</span> ({user.role})
+          <p className="text-slate-400 text-xs mt-1">
+            Submitting as <span className="text-blue-400 font-semibold">{user.fullName}</span> ({user.role})
           </p>
         </div>
-        <span className="px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 rounded-full text-xs font-semibold">
+        <span className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-xs font-semibold">
           Requester: {user.department || 'General'}
         </span>
       </div>
 
       {prefillData && (
-        <div className="p-3 bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-semibold rounded-xl flex items-center gap-2">
-          <span>🤖</span> Form pre-filled from UniAssist 360 AI Chatbot deflection conversation.
+        <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium rounded-xl flex items-center gap-2">
+          <Bot className="w-4 h-4 text-blue-400 shrink-0" />
+          <span>Form pre-filled from UniAssist 360 Support Assistant conversation.</span>
         </div>
       )}
 
       {message.text && (
         <div
-          className={`p-4 rounded-xl text-sm font-medium border flex items-center gap-3 ${
+          className={`p-3.5 rounded-xl text-xs font-medium border flex items-center gap-2.5 animate-in fade-in duration-150 ${
             message.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+              ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+              : 'bg-rose-500/10 border border-rose-500/30 text-rose-300'
           }`}
         >
-          <span>{message.type === 'success' ? '✅' : '❌'}</span>
+          {message.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          )}
           <span>{message.text}</span>
         </div>
       )}
@@ -374,7 +390,8 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
                 <p className="text-[11px] text-slate-500 mt-0.5">Permitted: JPG, PNG, PDF, Word, Excel, PowerPoint, TXT, CSV (No archives)</p>
               </div>
               <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition">
-                <span>📎 Browse Files</span>
+                <Paperclip className="w-3.5 h-3.5 text-blue-400" />
+                <span>Browse Files</span>
                 <input
                   type="file"
                   multiple
@@ -386,8 +403,9 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
             </div>
 
             {fileError && (
-              <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-lg">
-                ⚠️ {fileError}
+              <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                <span>{fileError}</span>
               </p>
             )}
 
@@ -407,7 +425,7 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
                       onClick={() => removeFile(idx)}
                       className="text-slate-400 hover:text-rose-400 font-bold transition ml-1"
                     >
-                      ×
+                      <X className="w-3 h-3" />
                     </button>
                   </div>
                 ))}
@@ -421,18 +439,16 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/20 transition duration-200 flex items-center justify-center gap-2 disabled:opacity-50 text-xs"
           >
             {loading ? (
               <>
-                <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 <span>Submitting Ticket...</span>
               </>
             ) : (
               <>
-                <span>🚀</span>
+                <Send className="w-3.5 h-3.5" />
                 <span>Submit Ticket</span>
               </>
             )}

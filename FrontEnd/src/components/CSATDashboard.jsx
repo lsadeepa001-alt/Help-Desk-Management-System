@@ -1,18 +1,23 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { Star, UserCheck, Award, Users } from 'lucide-react';
 
 const API = 'http://localhost:8080/api';
 
 const StarDisplay = ({ rating, size = 'md' }) => {
-  const sz = size === 'sm' ? 'w-3.5 h-3.5' : size === 'lg' ? 'w-6 h-6' : 'w-4 h-4';
+  const sz = size === 'sm' ? 'w-3.5 h-3.5' : size === 'lg' ? 'w-5 h-5' : 'w-4 h-4';
   return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map(v => (
-        <svg key={v} className={`${sz} ${v <= Math.round(rating) ? 'text-amber-400' : 'text-slate-700'}`}
-          fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
+    <div className="flex gap-0.5 justify-center">
+      {[1, 2, 3, 4, 5].map((v) => (
+        <Star
+          key={v}
+          className={`${sz} ${
+            v <= Math.round(rating)
+              ? 'text-amber-400 fill-amber-400'
+              : 'text-slate-700'
+          }`}
+        />
       ))}
     </div>
   );
@@ -110,19 +115,19 @@ export default function CSATDashboard() {
               </span>
             </div>
             <div className="text-xs text-slate-500 mt-2 uppercase tracking-wider">CSAT Score</div>
-            <div className="text-[10px] text-slate-600 mt-0.5">% rated 4★ or above</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">% rated 4 stars or above</div>
           </div>
 
           {/* Total Reviews */}
-          <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-5 text-center">
-            <div className="text-4xl font-extrabold text-indigo-400">{totalReviews}</div>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-center">
+            <div className="text-4xl font-extrabold text-blue-400">{totalReviews}</div>
             <div className="text-xs text-slate-500 mt-4 uppercase tracking-wider">Total Reviews</div>
           </div>
         </div>
 
         {/* Rating Breakdown Bar */}
         {totalReviews > 0 && (
-          <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-5 space-y-3">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
             <h3 className="text-sm font-semibold text-slate-200">Rating Breakdown</h3>
             {[5, 4, 3, 2, 1].map(star => {
               const count = ratingBreakdown?.[star] || 0;
@@ -131,9 +136,7 @@ export default function CSATDashboard() {
                 <div key={star} className="flex items-center gap-3">
                   <div className="flex items-center gap-1 w-14 flex-shrink-0">
                     <span className="text-xs text-slate-400 font-medium">{star}</span>
-                    <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                    </svg>
+                    <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                   </div>
                   <div className="flex-1 h-2.5 bg-slate-700 rounded-full overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-700"
@@ -199,21 +202,23 @@ export default function CSATDashboard() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="p-6 rounded-2xl bg-gradient-to-r from-amber-900/30 via-slate-800/80 to-orange-900/30 border border-slate-700/50 shadow-xl">
-        <span className="inline-block px-3 py-1 bg-amber-500/20 border border-amber-500/30 text-amber-300 rounded-full text-xs font-semibold uppercase tracking-wider mb-2">
-          Module 3: CSAT System
-        </span>
-        <h2 className="text-2xl font-extrabold text-white tracking-tight">⭐ Satisfaction Analytics</h2>
-        <p className="text-slate-400 text-sm mt-1">
+      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold uppercase tracking-wider mb-2">
+          <Star className="w-3.5 h-3.5 fill-blue-400" />
+          <span>Feedback Analytics</span>
+        </div>
+        <h2 className="text-2xl font-bold text-white tracking-tight">Satisfaction Analytics</h2>
+        <p className="text-slate-400 text-xs mt-1">
           Customer satisfaction ratings and performance metrics.
         </p>
       </div>
 
       {/* ── My Performance (for agents) ── */}
       {!isManager && (
-        <div className="bg-slate-800/90 border border-slate-700/70 rounded-2xl p-6 shadow-xl space-y-4">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            📊 My Performance — <span className="text-indigo-300">{user?.fullName}</span>
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+          <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-blue-400" />
+            <span>My Performance — <span className="text-blue-300">{user?.fullName}</span></span>
           </h2>
           <SummaryCard data={agentSummary} />
         </div>
@@ -223,8 +228,11 @@ export default function CSATDashboard() {
       {isManager && (
         <div className="space-y-5">
           {/* Overall summary card */}
-          <div className="bg-slate-800/90 border border-slate-700/70 rounded-2xl p-6 shadow-xl space-y-4">
-            <h2 className="text-lg font-bold text-white">🏆 Overall Helpdesk Performance</h2>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Award className="w-4 h-4 text-amber-400" />
+              <span>Overall Helpdesk Performance</span>
+            </h2>
             {allFeedback.length === 0 ? (
               <div className="text-center py-8 text-slate-500 italic text-sm">No feedback submitted yet.</div>
             ) : (() => {
@@ -234,18 +242,18 @@ export default function CSATDashboard() {
               const label = csatLabel(csat);
               return (
                 <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="bg-slate-900/60 rounded-xl p-4">
-                    <div className="text-3xl font-extrabold text-amber-400">{avg.toFixed(1)}</div>
+                  <div className="bg-slate-950 rounded-xl p-4 border border-slate-800">
+                    <div className="text-3xl font-bold text-amber-400">{avg.toFixed(1)}</div>
                     <StarDisplay rating={avg} size="sm" />
                     <div className="text-xs text-slate-500 mt-1">Avg Rating</div>
                   </div>
-                  <div className="bg-slate-900/60 rounded-xl p-4">
-                    <div className={`text-3xl font-extrabold ${csatColor(csat)}`}>{csat.toFixed(0)}%</div>
+                  <div className="bg-slate-950 rounded-xl p-4 border border-slate-800">
+                    <div className={`text-3xl font-bold ${csatColor(csat)}`}>{csat.toFixed(0)}%</div>
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${label.color}`}>{label.text}</span>
                     <div className="text-xs text-slate-500 mt-1">CSAT Score</div>
                   </div>
-                  <div className="bg-slate-900/60 rounded-xl p-4">
-                    <div className="text-3xl font-extrabold text-indigo-400">{allFeedback.length}</div>
+                  <div className="bg-slate-950 rounded-xl p-4 border border-slate-800">
+                    <div className="text-3xl font-bold text-blue-400">{allFeedback.length}</div>
                     <div className="text-xs text-slate-500 mt-4">Total Reviews</div>
                   </div>
                 </div>
@@ -255,8 +263,11 @@ export default function CSATDashboard() {
 
           {/* Agent leaderboard */}
           {agents.length > 0 && (
-            <div className="bg-slate-800/90 border border-slate-700/70 rounded-2xl p-6 shadow-xl space-y-4">
-              <h2 className="text-lg font-bold text-white">👥 Agent Performance</h2>
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-400" />
+                <span>Agent Performance</span>
+              </h2>
               <div className="space-y-2">
                 {agents.map(ag => {
                   const agFeedback = allFeedback.filter(f => f.ticket?.assignedTo?.id === ag.id);

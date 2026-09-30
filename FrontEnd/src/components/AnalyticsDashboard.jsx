@@ -2,6 +2,25 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import {
+  Download,
+  Printer,
+  BarChart3,
+  Clock,
+  CheckCircle2,
+  Star,
+  Tag,
+  Zap,
+  Activity,
+  Award,
+  ShieldCheck,
+  Lightbulb,
+  PenSquare,
+  Edit3,
+  Trash2,
+  X,
+  FileText,
+} from 'lucide-react';
 
 const API = 'http://localhost:8080/api';
 
@@ -121,7 +140,7 @@ export default function AnalyticsDashboard() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      showToast('📊 CSV Report downloaded successfully!', 'success');
+      showToast('CSV report downloaded successfully.', 'success');
     } catch {
       showToast('Failed to export CSV report.', 'error');
     } finally {
@@ -221,11 +240,11 @@ export default function AnalyticsDashboard() {
       {/* ── Page Header & Action Buttons ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div>
-          <span className="inline-block px-3 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full text-xs font-semibold uppercase tracking-wider mb-2">
-            Executive Intelligence
+          <span className="inline-block px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full text-xs font-semibold uppercase tracking-wider mb-2">
+            Performance Overview
           </span>
-          <h2 className="text-3xl font-extrabold text-white tracking-tight">Analytics & Report Center</h2>
-          <p className="text-slate-400 text-sm mt-1">Real-time system health, operational bottlenecks, and agent performance reviews.</p>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Analytics & Reporting</h2>
+          <p className="text-slate-400 text-xs mt-1">Real-time system health, operational bottlenecks, and agent performance reviews.</p>
         </div>
 
         <div className="flex gap-3">
@@ -235,16 +254,16 @@ export default function AnalyticsDashboard() {
               disabled={exporting}
               className="px-4 py-2.5 bg-emerald-600/90 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
             >
-              <span>📥</span>
+              <Download className="w-3.5 h-3.5" />
               <span>{exporting ? 'Generating CSV...' : 'Export CSV Report'}</span>
             </button>
           )}
 
           <button
             onClick={handlePrintPdf}
-            className="px-4 py-2.5 bg-indigo-600/90 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-indigo-600/20"
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-blue-600/20"
           >
-            <span>🖨️</span>
+            <Printer className="w-3.5 h-3.5" />
             <span>Print / Save PDF</span>
           </button>
         </div>
@@ -260,40 +279,40 @@ export default function AnalyticsDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* Total Volume */}
-        <div className="bg-slate-800/80 border border-slate-700/60 p-5 rounded-2xl shadow-xl space-y-2 print:border-gray-300 print:bg-gray-50">
+        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl space-y-2 print:border-gray-300 print:bg-gray-50">
           <div className="flex items-center justify-between text-slate-400 print:text-gray-700">
             <span className="text-xs font-bold uppercase tracking-wider">Total Volume</span>
-            <span className="text-xl">📊</span>
+            <BarChart3 className="w-4 h-4 text-blue-400" />
           </div>
           <div className="text-3xl font-extrabold text-white print:text-black">{total}</div>
           <p className="text-[11px] text-slate-400">Total tickets logged in system</p>
         </div>
 
         {/* Resolution Rate */}
-        <div className="bg-slate-800/80 border border-slate-700/60 p-5 rounded-2xl shadow-xl space-y-2 print:border-gray-300 print:bg-gray-50">
+        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl space-y-2 print:border-gray-300 print:bg-gray-50">
           <div className="flex items-center justify-between text-slate-400 print:text-gray-700">
             <span className="text-xs font-bold uppercase tracking-wider">Resolution Rate</span>
-            <span className="text-xl">🎯</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-3xl font-extrabold text-emerald-400 print:text-emerald-700">{resolutionRate}%</div>
           <p className="text-[11px] text-slate-400">{summary?.resolvedTickets || 0} of {total} tickets resolved</p>
         </div>
 
         {/* Active Backlog */}
-        <div className="bg-slate-800/80 border border-slate-700/60 p-5 rounded-2xl shadow-xl space-y-2 print:border-gray-300 print:bg-gray-50">
+        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl space-y-2 print:border-gray-300 print:bg-gray-50">
           <div className="flex items-center justify-between text-slate-400 print:text-gray-700">
             <span className="text-xs font-bold uppercase tracking-wider">Active Backlog</span>
-            <span className="text-xl">⏳</span>
+            <Clock className="w-4 h-4 text-amber-400" />
           </div>
           <div className="text-3xl font-extrabold text-amber-400 print:text-amber-700">{activeBacklog}</div>
           <p className="text-[11px] text-slate-400">{summary?.openTickets || 0} Open, {summary?.inProgressTickets || 0} In Progress</p>
         </div>
 
         {/* CSAT Satisfaction */}
-        <div className="bg-slate-800/80 border border-slate-700/60 p-5 rounded-2xl shadow-xl space-y-2 print:border-gray-300 print:bg-gray-50">
+        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl space-y-2 print:border-gray-300 print:bg-gray-50">
           <div className="flex items-center justify-between text-slate-400 print:text-gray-700">
             <span className="text-xs font-bold uppercase tracking-wider">CSAT Score</span>
-            <span className="text-xl">⭐</span>
+            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
           </div>
           <div className="text-3xl font-extrabold text-yellow-400 print:text-yellow-700">
             {summary?.avgCsatRating ? `${summary.avgCsatRating} / 5.0` : 'N/A'}
@@ -308,9 +327,10 @@ export default function AnalyticsDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
         {/* Category Breakdown */}
-        <div className="bg-slate-800/80 border border-slate-700/60 p-6 rounded-2xl shadow-xl space-y-4 print:border-gray-300 print:bg-gray-50">
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4 print:border-gray-300 print:bg-gray-50">
           <h3 className="font-bold text-sm text-white flex items-center gap-2 print:text-black">
-            <span>🏷️</span> Category Distribution
+            <Tag className="w-4 h-4 text-blue-400" />
+            <span>Category Distribution</span>
           </h3>
           <div className="space-y-3">
             {Object.entries(summary?.categoryDistribution || {}).map(([cat, count]) => {
@@ -321,9 +341,9 @@ export default function AnalyticsDashboard() {
                     <span>{cat}</span>
                     <span>{count} ({pct}%)</span>
                   </div>
-                  <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden print:bg-gray-200">
+                  <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden print:bg-gray-200">
                     <div
-                      className="bg-indigo-500 h-2.5 rounded-full transition-all duration-500"
+                      className="bg-blue-500 h-2 rounded-full transition-all duration-500"
                       style={{ width: `${pct}%` }}
                     ></div>
                   </div>
@@ -334,9 +354,10 @@ export default function AnalyticsDashboard() {
         </div>
 
         {/* Priority Breakdown */}
-        <div className="bg-slate-800/80 border border-slate-700/60 p-6 rounded-2xl shadow-xl space-y-4 print:border-gray-300 print:bg-gray-50">
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4 print:border-gray-300 print:bg-gray-50">
           <h3 className="font-bold text-sm text-white flex items-center gap-2 print:text-black">
-            <span>⚡</span> Priority Breakdown
+            <Zap className="w-4 h-4 text-amber-400" />
+            <span>Priority Breakdown</span>
           </h3>
           <div className="space-y-3">
             {Object.entries(summary?.priorityDistribution || {}).map(([prio, count]) => {
@@ -347,9 +368,9 @@ export default function AnalyticsDashboard() {
                     <span className="font-semibold">{prio}</span>
                     <span>{count} ({pct}%)</span>
                   </div>
-                  <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden print:bg-gray-200">
+                  <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden print:bg-gray-200">
                     <div
-                      className={`h-2.5 rounded-full transition-all duration-500 ${priorityColors[prio] || 'bg-indigo-500'}`}
+                      className={`h-2 rounded-full transition-all duration-500 ${priorityColors[prio] || 'bg-blue-500'}`}
                       style={{ width: `${pct}%` }}
                     ></div>
                   </div>
@@ -360,9 +381,10 @@ export default function AnalyticsDashboard() {
         </div>
 
         {/* Status Breakdown & Resolution Speed */}
-        <div className="bg-slate-800/80 border border-slate-700/60 p-6 rounded-2xl shadow-xl space-y-4 print:border-gray-300 print:bg-gray-50">
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4 print:border-gray-300 print:bg-gray-50">
           <h3 className="font-bold text-sm text-white flex items-center gap-2 print:text-black">
-            <span>🔄</span> Status Breakdown
+            <Activity className="w-4 h-4 text-sky-400" />
+            <span>Status Breakdown</span>
           </h3>
           <div className="space-y-3">
             {Object.entries(summary?.statusDistribution || {}).map(([st, count]) => {
@@ -373,9 +395,9 @@ export default function AnalyticsDashboard() {
                     <span className="font-semibold">{st.replace('_', ' ')}</span>
                     <span>{count} ({pct}%)</span>
                   </div>
-                  <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden print:bg-gray-200">
+                  <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden print:bg-gray-200">
                     <div
-                      className={`h-2.5 rounded-full transition-all duration-500 ${statusColors[st] || 'bg-slate-500'}`}
+                      className={`h-2 rounded-full transition-all duration-500 ${statusColors[st] || 'bg-slate-500'}`}
                       style={{ width: `${pct}%` }}
                     ></div>
                   </div>
@@ -384,23 +406,25 @@ export default function AnalyticsDashboard() {
             })}
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-700/50 flex items-center justify-between text-xs">
+          <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
             <span className="text-slate-400">Avg Resolution Speed:</span>
-            <span className="font-bold text-indigo-300 print:text-indigo-800">
-              ⏱️ {summary?.avgResolutionTimeHours ? `${summary.avgResolutionTimeHours} hrs` : 'N/A'}
+            <span className="font-bold text-blue-400 print:text-blue-800 flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" />
+              <span>{summary?.avgResolutionTimeHours ? `${summary.avgResolutionTimeHours} hrs` : 'N/A'}</span>
             </span>
           </div>
         </div>
       </div>
 
-      {/* ── SLA Compliance Section (Managers & System Administrators) ── */}
+      {/* SLA Compliance Section (Managers & System Administrators) */}
       {canViewSla && slaCompliance && (
         <div className="space-y-6">
           <div className="bg-slate-800/80 border border-slate-700/60 p-6 rounded-2xl shadow-xl space-y-5 print:border-gray-300 print:bg-gray-50">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700/60 pb-4">
               <div>
                 <h3 className="font-bold text-base text-white flex items-center gap-2 print:text-black">
-                  <span>⏱️</span> Service Level Agreement (SLA) Compliance
+                  <Clock className="w-5 h-5 text-sky-400" />
+                  <span>Service Level Agreement (SLA) Compliance</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Resolution timeline compliance measured against configured priority thresholds.
@@ -508,10 +532,11 @@ export default function AnalyticsDashboard() {
       )}
 
       {/* ── Support Agent Leaderboard Table ── */}
-      <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl shadow-xl overflow-hidden print:border-gray-300">
-        <div className="p-5 border-b border-slate-700/60 bg-slate-800 flex items-center justify-between print:bg-gray-100">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden print:border-gray-300">
+        <div className="p-5 border-b border-slate-800 bg-slate-900 flex items-center justify-between print:bg-gray-100">
           <h3 className="font-bold text-white text-sm flex items-center gap-2 print:text-black">
-            <span>🏆</span> Support Agent Performance Leaderboard
+            <Award className="w-4 h-4 text-amber-400" />
+            <span>Support Agent Performance Leaderboard</span>
           </h3>
           <span className="text-xs text-slate-400 font-semibold">{agentPerformance.length} Active Staff</span>
         </div>
@@ -519,7 +544,7 @@ export default function AnalyticsDashboard() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-900/60 text-slate-400 border-b border-slate-700/60 uppercase tracking-wider text-[10px] print:bg-gray-200 print:text-black">
+              <tr className="bg-slate-950 text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[10px] print:bg-gray-200 print:text-black">
                 <th className="py-3 px-4 font-bold">Rank</th>
                 <th className="py-3 px-4 font-bold">Agent Name</th>
                 <th className="py-3 px-4 font-bold">Department</th>
@@ -529,7 +554,7 @@ export default function AnalyticsDashboard() {
                 <th className="py-3 px-4 font-bold text-center">CSAT Avg</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700/40 text-slate-200 print:divide-gray-200 print:text-black">
+            <tbody className="divide-y divide-slate-800 text-slate-200 print:divide-gray-200 print:text-black">
               {agentPerformance.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="py-8 text-center text-slate-500">No support agent data available.</td>
@@ -541,8 +566,8 @@ export default function AnalyticsDashboard() {
                     : 0;
 
                   return (
-                    <tr key={agent.agentId} className="hover:bg-slate-700/30 transition">
-                      <td className="py-3 px-4 font-bold text-indigo-400">#{index + 1}</td>
+                    <tr key={agent.agentId} className="hover:bg-slate-800/50 transition">
+                      <td className="py-3 px-4 font-bold text-blue-400">#{index + 1}</td>
                       <td className="py-3 px-4 font-semibold text-white print:text-black">
                         {agent.agentName}
                         <span className="block text-[10px] text-slate-400 font-normal">{agent.email}</span>
@@ -553,12 +578,17 @@ export default function AnalyticsDashboard() {
                         {agent.resolvedTicketsCount}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <span className="px-2 py-0.5 bg-slate-900 rounded-full font-extrabold text-[11px] print:bg-gray-100">
+                        <span className="px-2 py-0.5 bg-slate-950 rounded-full font-extrabold text-[11px] print:bg-gray-100">
                           {resPct}%
                         </span>
                       </td>
                       <td className="py-3 px-4 text-center font-extrabold text-yellow-400 print:text-yellow-700">
-                        {agent.avgCsatRating > 0 ? `⭐ ${agent.avgCsatRating}` : '—'}
+                        {agent.avgCsatRating > 0 ? (
+                          <span className="inline-flex items-center gap-1 justify-center">
+                            <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                            <span>{agent.avgCsatRating}</span>
+                          </span>
+                        ) : '—'}
                       </td>
                     </tr>
                   );
@@ -571,18 +601,19 @@ export default function AnalyticsDashboard() {
 
       {/* ── Operational Staff Activity Stream (Audit Trail) (Managers & Administrators) ── */}
       {canViewExecutiveAnalytics && (
-        <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl shadow-xl overflow-hidden print:border-gray-300">
-          <div className="p-5 border-b border-slate-700/60 bg-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden print:border-gray-300">
+          <div className="p-5 border-b border-slate-800 bg-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
               <h3 className="font-bold text-white text-base flex items-center gap-2">
-                <span>🛡️</span> Operational Staff Activity Stream
+                <ShieldCheck className="w-4 h-4 text-blue-400" />
+                <span>Operational Staff Activity Stream</span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 Audit trail tracking ticket claims, assignments, routing transitions, resolutions, and staff comments.
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full text-xs font-bold">
+              <span className="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full text-xs font-bold">
                 {activitySummary?.totalActivities ?? activityLogs.length} Total Events
               </span>
             </div>
@@ -702,11 +733,12 @@ export default function AnalyticsDashboard() {
 
       {/* ── Management Strategic Insights & Commentary Section ── */}
       {canViewExecutiveAnalytics && (
-        <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl shadow-xl overflow-hidden p-6 space-y-6 print:border-gray-300">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-700/60 pb-4">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden p-6 space-y-6 print:border-gray-300">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
             <div>
               <h3 className="font-bold text-white text-base flex items-center gap-2">
-                <span>💡</span> Management Strategic Insights & Commentary
+                <Lightbulb className="w-4 h-4 text-amber-400" />
+                <span>Management Strategic Insights & Commentary</span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 Executive analysis, operational bottleneck observations, and leadership action items.
@@ -714,17 +746,17 @@ export default function AnalyticsDashboard() {
             </div>
             <button
               onClick={handleOpenCreateInsight}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-indigo-600/20 self-start sm:self-auto"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-blue-600/20 self-start sm:self-auto"
             >
-              <span>✍️</span>
+              <PenSquare className="w-3.5 h-3.5" />
               <span>Publish Strategic Insight</span>
             </button>
           </div>
 
           {/* Insights Cards Feed */}
           {insights.length === 0 ? (
-            <div className="text-center py-10 bg-slate-900/40 rounded-xl border border-slate-700/40 space-y-2">
-              <span className="text-3xl">📝</span>
+            <div className="text-center py-10 bg-slate-950/60 rounded-xl border border-slate-800 space-y-2">
+              <FileText className="w-8 h-8 text-slate-500 mx-auto" />
               <p className="text-sm font-semibold text-slate-300">No strategic insights published yet.</p>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
                 Executive managers and administrators can publish observations, SLA bottleneck analysis, and operational directives here.
@@ -750,12 +782,12 @@ export default function AnalyticsDashboard() {
                 return (
                   <div
                     key={item.id}
-                    className="bg-slate-900/70 border border-slate-700/50 rounded-xl p-5 flex flex-col justify-between space-y-4 hover:border-slate-600 transition shadow-lg"
+                    className="bg-slate-950/60 border border-slate-800 rounded-xl p-5 flex flex-col justify-between space-y-4 hover:border-slate-700 transition shadow-lg"
                   >
                     <div className="space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white text-xs shadow">
+                          <div className="w-8 h-8 rounded-full bg-blue-600/30 border border-blue-500/40 flex items-center justify-center font-bold text-blue-300 text-xs shadow">
                             {item.authorName?.charAt(0) || 'M'}
                           </div>
                           <div>
@@ -770,24 +802,25 @@ export default function AnalyticsDashboard() {
                           <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => handleOpenEditInsight(item)}
-                              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-semibold transition"
+                              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-semibold transition flex items-center gap-1"
                               title="Edit insight"
                             >
-                              ✏️ Edit
+                              <Edit3 className="w-3 h-3" />
+                              <span>Edit</span>
                             </button>
                             <button
                               onClick={() => handleDeleteInsight(item.id)}
-                              className="px-2 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded text-[11px] font-semibold transition"
+                              className="p-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded text-[11px] font-semibold transition"
                               title="Delete insight"
                             >
-                              🗑️
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         )}
                       </div>
 
                       {item.title && (
-                        <h4 className="font-extrabold text-sm text-indigo-300 pt-1">
+                        <h4 className="font-bold text-sm text-blue-300 pt-1">
                           {item.title}
                         </h4>
                       )}
@@ -800,7 +833,7 @@ export default function AnalyticsDashboard() {
                     <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-500">
                       <span>{formattedDate}</span>
                       {item.edited && (
-                        <span className="text-amber-400/80 font-medium">● Edited</span>
+                        <span className="text-amber-400 font-medium">● Edited</span>
                       )}
                     </div>
                   </div>
@@ -814,17 +847,17 @@ export default function AnalyticsDashboard() {
       {/* ── Add / Edit Insight Modal Dialog ── */}
       {showInsightModal && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-700/70 pb-3">
-              <h3 className="font-extrabold text-white text-base flex items-center gap-2">
-                <span>💡</span>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-white text-base flex items-center gap-2">
+                <Lightbulb className="w-4 h-4 text-amber-400" />
                 <span>{insightForm.id ? 'Edit Strategic Insight' : 'Publish Strategic Insight'}</span>
               </h3>
               <button
                 onClick={() => setShowInsightModal(false)}
-                className="text-slate-400 hover:text-white text-lg font-bold"
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -874,7 +907,7 @@ export default function AnalyticsDashboard() {
                 <button
                   type="submit"
                   disabled={savingInsight || !insightForm.content.trim()}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-indigo-600/30 disabled:opacity-50"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-blue-600/30 disabled:opacity-50"
                 >
                   {savingInsight && (
                     <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />

@@ -5,7 +5,7 @@ const AuthContext = createContext();
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
-// ── Proposal Concrete Roles ──
+// Concrete RBAC Roles
 export const ROLES = {
   STUDENT: 'STUDENT',
   LECTURER: 'LECTURER',

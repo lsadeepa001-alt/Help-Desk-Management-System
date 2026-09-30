@@ -1,21 +1,40 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import {
+  BookOpen,
+  Search,
+  Star,
+  Plus,
+  Globe,
+  Laptop,
+  Wrench,
+  Shield,
+  Eye,
+  ArrowRight,
+  X,
+  AlertCircle,
+  Trash2,
+  Edit3,
+} from 'lucide-react';
+import Button from './ui/Button';
+import Badge from './ui/Badge';
+import EmptyState from './ui/EmptyState';
 
 const API = 'http://localhost:8080/api';
 
 const categoryBadges = {
-  IT: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
-  IT_SERVICES: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
-  ACADEMIC_AFFAIRS: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-  MAINTENANCE: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-  LIBRARY: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-  SECURITY: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+  IT: 'info',
+  IT_SERVICES: 'info',
+  ACADEMIC_AFFAIRS: 'success',
+  MAINTENANCE: 'warning',
+  LIBRARY: 'neutral',
+  SECURITY: 'error',
 };
 
 const KM_ROLES = ['KNOWLEDGE_MANAGER', 'SYSTEM_ADMINISTRATOR'];
 
-export default function KnowledgeBase({ onOpenArticleInChat }) {
+export default function KnowledgeBase() {
   const { user, isAuthenticated } = useAuth();
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -64,11 +83,11 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
     try {
       const res = await axios.get(`${API}/kb/articles/${id}`);
       setSelectedArticle(res.data);
-      // update local view count
-      setArticles(prev => prev.map(a => a.id === id ? { ...a, viewCount: res.data.viewCount } : a));
+      setArticles((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, viewCount: res.data.viewCount } : a))
+      );
     } catch {
-      // fallback to article in list
-      const art = articles.find(a => a.id === id);
+      const art = articles.find((a) => a.id === id);
       if (art) setSelectedArticle(art);
     }
   };
@@ -98,86 +117,86 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
   };
 
   const handleEditClick = (article) => {
-    let cat = article.category || 'IT';
-    if (cat === 'IT_SERVICES') cat = 'IT';
     setEditFormData({
       id: article.id,
       title: article.title,
       content: article.content,
-      category: cat,
+      category: article.category || 'IT',
       keywords: article.keywords || '',
-      isFaq: article.isFaq,
+      isFaq: article.isFaq || false,
     });
+    setEditorMsg('');
     setShowEditor(true);
   };
 
-  const handleDeleteClick = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this article?')) return;
+  const handleDeleteClick = async (articleId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this KB article?')) return;
     try {
-      await axios.delete(`${API}/kb/articles/${id}`);
-      if (selectedArticle?.id === id) setSelectedArticle(null);
+      await axios.delete(`${API}/kb/articles/${articleId}`);
       fetchArticles();
+      if (selectedArticle?.id === articleId) setSelectedArticle(null);
     } catch (err) {
-      alert('Failed to delete article.');
+      alert('Delete failed: ' + (err.response?.data?.message || err.message));
     }
   };
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* ── Header Banner ── */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-indigo-900/50 via-slate-800/90 to-purple-900/50 border border-slate-700/60 shadow-2xl relative overflow-hidden">
-        <div className="relative z-10 max-w-3xl space-y-3">
-          <span className="inline-block px-3 py-1 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-full text-xs font-semibold uppercase tracking-wider">
-            Module 4: Knowledge Base & Smart Assistant
-          </span>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            📚 Knowledge Base & Self-Service FAQ Portal
+      <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl relative overflow-hidden">
+        <div className="relative z-10 max-w-3xl space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold uppercase tracking-wider mb-1">
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Self-Service Portal</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            Knowledge Base & Self-Service FAQ
           </h1>
-          <p className="text-slate-300 text-sm leading-relaxed">
+          <p className="text-slate-400 text-xs leading-relaxed max-w-2xl">
             Search step-by-step troubleshooting guides, university IT policies, software activation steps, and campus maintenance information.
           </p>
         </div>
-        <div className="absolute right-6 bottom-0 opacity-10 text-9xl pointer-events-none select-none">📖</div>
       </div>
 
       {/* ── Search & Filter Controls ── */}
-      <div className="bg-slate-800/80 border border-slate-700/70 rounded-2xl p-4 sm:p-6 shadow-xl backdrop-blur-md space-y-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl space-y-4">
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
           <div className="relative flex-1 w-full">
+            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="Search by keywords (e.g. Wi-Fi, LMS password, MATLAB, hostel repair)..."
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-3 pl-11 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm transition"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs transition"
             />
-            <svg className="w-5 h-5 text-slate-500 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={() => setFaqOnly(!faqOnly)}
-              className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 whitespace-nowrap ${
+              className={`px-3 py-2 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 whitespace-nowrap ${
                 faqOnly
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-md'
-                  : 'bg-slate-900/60 text-slate-400 border-slate-700 hover:text-slate-200'
+                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                  : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
               }`}
             >
-              <span>⭐</span> FAQs Only
+              <Star className={`w-3.5 h-3.5 ${faqOnly ? 'fill-amber-400 text-amber-400' : 'text-slate-500'}`} />
+              <span>FAQs Only</span>
             </button>
 
             {canEdit && (
-              <button
+              <Button
                 onClick={() => {
                   setEditFormData({ id: null, title: '', content: '', category: 'IT', keywords: '', isFaq: false });
                   setShowEditor(true);
                 }}
-                className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition flex items-center gap-1.5 whitespace-nowrap"
+                variant="primary"
+                size="sm"
+                icon={Plus}
               >
-                <span>✏️</span> Publish Article
-              </button>
+                Publish Article
+              </Button>
             )}
           </div>
         </div>
@@ -185,96 +204,100 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
         {/* Category Pills */}
         <div className="flex gap-2 overflow-x-auto pb-1 pt-1 hide-scrollbar">
           {[
-            { id: 'ALL', label: 'All Categories', icon: '🌐' },
-            { id: 'IT', label: 'IT', icon: '💻' },
-            { id: 'MAINTENANCE', label: 'Maintenance', icon: '🛠️' },
-            { id: 'SECURITY', label: 'Security', icon: '🛡️' },
-          ].map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                selectedCategory === cat.id
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
-                  : 'bg-slate-900/60 text-slate-400 border border-slate-700/60 hover:bg-slate-700/60 hover:text-slate-200'
-              }`}
-            >
-              <span>{cat.icon}</span>
-              <span>{cat.label}</span>
-            </button>
-          ))}
+            { id: 'ALL', label: 'All Categories', icon: Globe },
+            { id: 'IT', label: 'IT', icon: Laptop },
+            { id: 'MAINTENANCE', label: 'Maintenance', icon: Wrench },
+            { id: 'SECURITY', label: 'Security', icon: Shield },
+          ].map((cat) => {
+            const Icon = cat.icon;
+            const isSelected = selectedCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:bg-slate-800 hover:text-slate-200'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{cat.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* ── Articles Grid / Loading / Empty ── */}
       {loading ? (
-        <div className="text-center py-20 text-slate-400 space-y-3">
-          <svg className="w-8 h-8 animate-spin mx-auto text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          <p className="text-sm font-medium">Searching Knowledge Base...</p>
+        <div className="text-center py-16 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs text-slate-400 font-medium">Searching Knowledge Base...</p>
         </div>
       ) : articles.length === 0 ? (
-        <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-12 text-center space-y-4">
-          <div className="text-5xl">🔍</div>
-          <h3 className="text-lg font-semibold text-slate-200">No Matching Articles Found</h3>
-          <p className="text-slate-400 text-sm max-w-md mx-auto">
-            Try adjusting your search terms or selecting a different category. You can also chat with our UniAssist 360 AI Assistant!
-          </p>
-        </div>
+        <EmptyState
+          icon={Search}
+          title="No Matching Articles Found"
+          description="Try adjusting your search terms or selecting a different category."
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {articles.map(article => (
+          {articles.map((article) => (
             <div
               key={article.id}
               onClick={() => handleOpenArticle(article.id)}
-              className="bg-slate-800/90 border border-slate-700/70 hover:border-indigo-500/50 rounded-2xl p-5 shadow-lg hover:shadow-2xl hover:shadow-indigo-500/10 transition duration-200 cursor-pointer flex flex-col justify-between group relative"
+              className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 shadow-lg transition duration-200 cursor-pointer flex flex-col justify-between group"
             >
               <div className="space-y-3">
                 {/* Header Row */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${categoryBadges[article.category] || 'bg-slate-700 text-slate-300'}`}>
+                  <Badge variant={categoryBadges[article.category] || 'neutral'}>
                     {article.category?.replace('_', ' ')}
-                  </span>
+                  </Badge>
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     {article.isFaq && (
-                      <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
-                        ⭐ FAQ
+                      <span className="text-[10px] bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1">
+                        <Star className="w-2.5 h-2.5 fill-amber-400" /> FAQ
                       </span>
                     )}
-                    <span>👁️ {article.viewCount}</span>
+                    <span className="flex items-center gap-1 text-[11px]">
+                      <Eye className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{article.viewCount}</span>
+                    </span>
                   </div>
                 </div>
 
                 {/* Title */}
-                <h3 className="text-base font-bold text-white group-hover:text-indigo-300 transition line-clamp-2 leading-snug">
+                <h3 className="text-sm font-bold text-white group-hover:text-blue-300 transition line-clamp-2 leading-snug">
                   {article.title}
                 </h3>
 
                 {/* Preview text */}
-                <p className="text-slate-300 text-xs line-clamp-3 leading-relaxed">
+                <p className="text-slate-400 text-xs line-clamp-3 leading-relaxed">
                   {article.content}
                 </p>
               </div>
 
               {/* Footer */}
-              <div className="mt-4 pt-3 border-t border-slate-700/50 flex items-center justify-between text-xs text-slate-400">
-                <span className="text-indigo-400 font-semibold group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
-                  Read Full Guide →
+              <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                <span className="text-blue-400 font-semibold group-hover:translate-x-1 transition-transform inline-flex items-center gap-1 text-xs">
+                  Read Guide <ArrowRight className="w-3 h-3" />
                 </span>
                 {canEdit && (
-                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleEditClick(article)}
-                      className="px-2 py-1 bg-slate-700 hover:bg-indigo-600 text-slate-200 rounded text-[11px] font-medium transition"
+                      className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-medium transition flex items-center gap-1"
                     >
-                      Edit
+                      <Edit3 className="w-3 h-3" />
+                      <span>Edit</span>
                     </button>
                     <button
                       onClick={() => handleDeleteClick(article.id)}
-                      className="px-2 py-1 bg-slate-700 hover:bg-rose-600 text-slate-200 rounded text-[11px] font-medium transition"
+                      className="p-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded text-[11px] font-medium transition"
                     >
-                      Del
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 )}
@@ -287,52 +310,54 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
       {/* ── Article Reader Modal ── */}
       {selectedArticle && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
-          onClick={e => e.target === e.currentTarget && setSelectedArticle(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={(e) => e.target === e.currentTarget && setSelectedArticle(null)}
         >
-          <div className="bg-slate-900 border border-slate-700/80 rounded-3xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
             {/* Modal Header */}
-            <div className="bg-slate-800/90 border-b border-slate-700/60 p-6 flex justify-between items-start gap-4">
+            <div className="bg-slate-950 border-b border-slate-800 p-6 flex justify-between items-start gap-4">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${categoryBadges[selectedArticle.category] || ''}`}>
+                  <Badge variant={categoryBadges[selectedArticle.category] || 'neutral'}>
                     {selectedArticle.category?.replace('_', ' ')}
-                  </span>
+                  </Badge>
                   {selectedArticle.isFaq && (
-                    <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
-                      ⭐ FAQ Guide
+                    <span className="text-[10px] bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1">
+                      <Star className="w-2.5 h-2.5 fill-amber-400" /> FAQ Guide
                     </span>
                   )}
-                  <span className="text-xs text-slate-400">👁️ {selectedArticle.viewCount} views</span>
+                  <span className="text-xs text-slate-400 flex items-center gap-1">
+                    <Eye className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{selectedArticle.viewCount} views</span>
+                  </span>
                 </div>
-                <h2 className="text-2xl font-extrabold text-white">{selectedArticle.title}</h2>
+                <h2 className="text-xl font-bold text-white">{selectedArticle.title}</h2>
               </div>
               <button
                 onClick={() => setSelectedArticle(null)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Content Body */}
-            <div className="p-6 overflow-y-auto space-y-4 text-slate-200 text-sm leading-relaxed whitespace-pre-wrap flex-1">
+            <div className="p-6 overflow-y-auto space-y-4 text-slate-300 text-xs leading-relaxed whitespace-pre-wrap flex-1">
               {selectedArticle.content}
             </div>
 
             {/* Modal Footer */}
-            <div className="bg-slate-800/90 border-t border-slate-700/60 p-4 px-6 flex justify-between items-center text-xs">
+            <div className="bg-slate-950 border-t border-slate-800 p-4 px-6 flex justify-between items-center text-xs">
               <span className="text-slate-400">
-                Author: <strong className="text-indigo-300">{selectedArticle.author?.fullName || 'University IT'}</strong>
+                Author: <strong className="text-blue-400">{selectedArticle.author?.fullName || 'University Support'}</strong>
               </span>
-              <button
+              <Button
                 onClick={() => setSelectedArticle(null)}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl transition"
+                variant="secondary"
+                size="sm"
               >
                 Close
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -341,20 +366,24 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
       {/* ── Publish / Edit Modal ── */}
       {showEditor && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
-          onClick={e => e.target === e.currentTarget && setShowEditor(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={(e) => e.target === e.currentTarget && setShowEditor(false)}
         >
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5">
-            <div className="flex justify-between items-center border-b border-slate-700/60 pb-4">
-              <h2 className="text-xl font-extrabold text-white">
-                {editFormData.id ? '✏️ Edit KB Article' : '✨ Publish New Knowledge Base Article'}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-blue-400" />
+                <span>{editFormData.id ? 'Edit KB Article' : 'Publish Knowledge Base Article'}</span>
               </h2>
-              <button onClick={() => setShowEditor(false)} className="text-slate-400 hover:text-white">✕</button>
+              <button onClick={() => setShowEditor(false)} className="text-slate-400 hover:text-white p-1">
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             {editorMsg && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium rounded-xl">
-                ⚠️ {editorMsg}
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{editorMsg}</span>
               </div>
             )}
 
@@ -366,9 +395,9 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
                 <input
                   type="text"
                   value={editFormData.title}
-                  onChange={e => setEditFormData({ ...editFormData, title: e.target.value })}
-                  placeholder="e.g. Connecting to Campus VPN"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                  placeholder="e.g. Connecting to Campus Wi-Fi and eduroam"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   required
                 />
               </div>
@@ -380,8 +409,8 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
                   </label>
                   <select
                     value={editFormData.category}
-                    onChange={e => setEditFormData({ ...editFormData, category: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   >
                     <option value="IT">IT</option>
                     <option value="MAINTENANCE">Maintenance</option>
@@ -396,9 +425,9 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
                   <input
                     type="text"
                     value={editFormData.keywords}
-                    onChange={e => setEditFormData({ ...editFormData, keywords: e.target.value })}
+                    onChange={(e) => setEditFormData({ ...editFormData, keywords: e.target.value })}
                     placeholder="wifi, portal, vpn"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   />
                 </div>
               </div>
@@ -410,9 +439,9 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
                 <textarea
                   rows={6}
                   value={editFormData.content}
-                  onChange={e => setEditFormData({ ...editFormData, content: e.target.value })}
-                  placeholder="Provide clear instructions..."
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none"
+                  onChange={(e) => setEditFormData({ ...editFormData, content: e.target.value })}
+                  placeholder="Provide clear step-by-step instructions..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none leading-relaxed"
                   required
                 />
               </div>
@@ -422,10 +451,10 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
                   type="checkbox"
                   id="isFaqCheck"
                   checked={editFormData.isFaq}
-                  onChange={e => setEditFormData({ ...editFormData, isFaq: e.target.checked })}
-                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-800 border-slate-700"
+                  onChange={(e) => setEditFormData({ ...editFormData, isFaq: e.target.checked })}
+                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-950 border-slate-800"
                 />
-                <label htmlFor="isFaqCheck" className="text-xs text-slate-300 font-medium">
+                <label htmlFor="isFaqCheck" className="text-xs text-slate-300 font-medium cursor-pointer">
                   Mark as Featured FAQ Guide
                 </label>
               </div>
@@ -434,17 +463,20 @@ export default function KnowledgeBase({ onOpenArticleInChat }) {
                 <button
                   type="button"
                   onClick={() => setShowEditor(false)}
-                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl border border-slate-700 transition"
+                  className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition"
                 >
                   Cancel
                 </button>
-                <button
+                <Button
                   type="submit"
+                  variant="primary"
+                  size="md"
+                  loading={saving}
                   disabled={saving}
-                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-sm font-bold rounded-xl transition shadow-lg shadow-indigo-500/20"
+                  className="flex-1 justify-center"
                 >
                   {saving ? 'Saving...' : 'Publish Article'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>

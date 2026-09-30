@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 const ToastContext = createContext();
 
@@ -31,20 +32,25 @@ export const ToastProvider = ({ children }) => {
                 ? 'bg-slate-900/95 border-emerald-500/40 text-emerald-300 shadow-emerald-950/40'
                 : t.type === 'error'
                 ? 'bg-slate-900/95 border-rose-500/40 text-rose-300 shadow-rose-950/40'
-                : 'bg-slate-900/95 border-indigo-500/40 text-indigo-300 shadow-indigo-950/40'
+                : 'bg-slate-900/95 border-blue-500/40 text-blue-300 shadow-blue-950/40'
             }`}
           >
             <div className="flex items-center gap-2.5 text-xs font-semibold leading-relaxed">
-              <span className="text-base">
-                {t.type === 'success' ? '✅' : t.type === 'error' ? '⚠️' : '🔔'}
-              </span>
+              {t.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : t.type === 'error' ? (
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              ) : (
+                <Info className="w-4 h-4 text-blue-400 shrink-0" />
+              )}
               <span>{t.message}</span>
             </div>
             <button
               onClick={() => removeToast(t.id)}
-              className="text-slate-400 hover:text-white text-xs p-1 transition"
+              className="text-slate-400 hover:text-white p-1 transition"
+              aria-label="Close notification"
             >
-              ✕
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         ))}

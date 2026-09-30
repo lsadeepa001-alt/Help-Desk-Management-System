@@ -4,19 +4,20 @@ import axios from 'axios';
 import { AuthProvider, useAuth, ROLES } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { ProtectedRoute, RoleBasedRoute, GuestOnlyRoute } from './components/ProtectedRoute';
+import { Ticket, Plus, Search, X, Users } from 'lucide-react';
+import ConfirmDialog from './components/ui/ConfirmDialog';
+import Button from './components/ui/Button';
 
-// ── Layout & Shared Components ──
 import Navbar from './components/Navbar';
 import AiChatbotModal from './components/AiChatbotModal';
 
-// ── Pages (auth & core) ──
+import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import PasswordResetPage from './pages/PasswordResetPage';
 import ProfilePage from './pages/ProfilePage';
 import Dashboard from './pages/Dashboard';
 
-// ── Feature Components ──
 import TicketList from './components/TicketList';
 import TicketDetails from './components/TicketDetails';
 import CreateTicket from './components/CreateTicket';
@@ -27,8 +28,6 @@ import KnowledgeBase from './components/KnowledgeBase';
 
 const API_BASE = 'http://localhost:8080/api';
 
-// ── Role groups for route permissions ──
-// ── Role groups for route permissions ──
 const STAFF_ROLES = [
   ROLES.SUPPORT_AGENT,
   ROLES.TEAM_LEAD,
@@ -47,35 +46,31 @@ const ANALYTICS_ROLES = [
   ROLES.SYSTEM_ADMINISTRATOR,
 ];
 
-// ── App Shell (Layout with Navbar + Footer for authenticated routes) ──
 function AppShell() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { showToast } = useToast();
   const [ticketPrefill, setTicketPrefill] = useState(null);
 
   const handleTicketCreated = () => {
     setTicketPrefill(null);
-    showToast('🚀 Ticket submitted successfully!', 'success');
+    showToast('Ticket submitted successfully.', 'success');
     navigate('/my-tickets');
   };
 
   const handleDeflectionToTicket = ({ title, description }) => {
     setTicketPrefill({ title, description });
     navigate('/create');
-    showToast('🤖 Prefilled ticket from AI Chatbot deflection.', 'info');
+    showToast('Ticket details were prefilled from the support assistant.', 'info');
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white relative">
+    <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-blue-600 selection:text-white relative">
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Routes>
-          {/* ── Public → Redirect to login ── */}
-          <Route path="/" element={<RootRedirect />} />
+          <Route path="/" element={<Navigate to="/home" replace />} />
 
-          {/* ── Unified Role-Adaptive Dashboard ── */}
           <Route path="/home" element={
             <ProtectedRoute>
               <Dashboard />
@@ -88,42 +83,37 @@ function AppShell() {
             </ProtectedRoute>
           } />
 
-          {/* ── All Tickets (Support Staff, Team Leads, System Admin only) ── */}
           <Route path="/tickets" element={
             <ProtectedRoute>
               <RoleBasedRoute allowedRoles={STAFF_ROLES}>
-                <div className="mb-8 p-6 rounded-3xl bg-gradient-to-r from-indigo-900/40 via-slate-800/80 to-purple-900/40 border border-slate-700/50 relative overflow-hidden shadow-2xl">
+                <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900/90 to-blue-950/40 border border-slate-800 relative overflow-hidden shadow-lg">
                   <div className="relative z-10 max-w-2xl">
-                    <span className="inline-block px-3 py-1 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-full text-xs font-semibold uppercase tracking-wider mb-2">
-                      Live Ticket Feed
+                    <span className="inline-block px-2.5 py-0.5 bg-blue-500/10 border border-blue-500/20 text-blue-300 rounded-md text-[11px] font-semibold uppercase tracking-wider mb-2">
+                      Live Queue Feed
                     </span>
-                    <h2 className="text-3xl font-extrabold text-white tracking-tight">All Support Tickets</h2>
-                    <p className="text-slate-300 text-sm mt-2 leading-relaxed">
-                      View and manage all university helpdesk tickets across departments.
+                    <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">All Support Tickets</h2>
+                    <p className="text-slate-300 text-sm mt-1.5 leading-relaxed">
+                      View and manage university helpdesk tickets across operational departments.
                     </p>
                   </div>
-                  <div className="absolute right-4 bottom-0 opacity-10 text-9xl pointer-events-none select-none">🏛️</div>
                 </div>
                 <TicketList onViewTicket={(id) => navigate(`/tickets/${id}`)} />
               </RoleBasedRoute>
             </ProtectedRoute>
           } />
 
-          {/* ── Ticket Details ── */}
           <Route path="/tickets/:ticketId" element={
             <ProtectedRoute>
               <TicketDetailsWrapper />
             </ProtectedRoute>
           } />
 
-          {/* ── My Tickets (End User / All authenticated roles) ── */}
           <Route path="/my-tickets" element={
             <ProtectedRoute>
               <MyTicketsView />
             </ProtectedRoute>
           } />
 
-          {/* ── Create Ticket ── */}
           <Route path="/create" element={
             <ProtectedRoute>
               <div className="max-w-3xl mx-auto">
@@ -136,7 +126,6 @@ function AppShell() {
             </ProtectedRoute>
           } />
 
-          {/* ── Agent Dashboard / Work Queue ── */}
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <RoleBasedRoute allowedRoles={AGENT_ROLES}>
@@ -145,7 +134,6 @@ function AppShell() {
             </ProtectedRoute>
           } />
 
-          {/* ── CSAT Dashboard ── */}
           <Route path="/csat" element={
             <ProtectedRoute>
               <RoleBasedRoute allowedRoles={[ROLES.SUPPORT_AGENT, ROLES.TEAM_LEAD, ROLES.MANAGER_EXECUTIVE, ROLES.SYSTEM_ADMINISTRATOR]}>
@@ -154,7 +142,6 @@ function AppShell() {
             </ProtectedRoute>
           } />
 
-          {/* ── Analytics & Reports ── */}
           <Route path="/analytics" element={
             <ProtectedRoute>
               <RoleBasedRoute allowedRoles={ANALYTICS_ROLES}>
@@ -163,14 +150,12 @@ function AppShell() {
             </ProtectedRoute>
           } />
 
-          {/* ── Knowledge Base ── */}
           <Route path="/kb" element={
             <ProtectedRoute>
               <KnowledgeBase />
             </ProtectedRoute>
           } />
 
-          {/* ── KB Manage ── */}
           <Route path="/knowledge-base/manage" element={
             <ProtectedRoute>
               <RoleBasedRoute allowedRoles={[ROLES.KNOWLEDGE_MANAGER, ROLES.SYSTEM_ADMINISTRATOR]}>
@@ -179,7 +164,6 @@ function AppShell() {
             </ProtectedRoute>
           } />
 
-          {/* ── Admin Users & Role Management ── */}
           <Route path="/admin/users" element={
             <ProtectedRoute>
               <RoleBasedRoute allowedRoles={[ROLES.SYSTEM_ADMINISTRATOR]}>
@@ -188,53 +172,34 @@ function AppShell() {
             </ProtectedRoute>
           } />
 
-          {/* ── Catch-all → redirect to root ── */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
 
-      {/* Floating AI Chatbot */}
       <AiChatbotModal onNavigateToCreateTicket={handleDeflectionToTicket} />
 
       <footer className="border-t border-slate-800 bg-slate-950/60 py-6 mt-16 print:hidden">
         <div className="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
-          <p>UniAssist 360 • University Help Desk System • 7-Role RBAC Verified</p>
+          <p>UniAssist 360 • University Support Portal</p>
         </div>
       </footer>
     </div>
   );
 }
 
-// ── Root "/" — redirect to login if unauthenticated, otherwise to role landing page ──
-function RootRedirect() {
-  const { isAuthenticated, getLandingPath, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return <Navigate to="/home" replace />;
-}
-
-// ── My Tickets view for logged-in users ──
 function MyTicketsView() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   return (
     <>
-      <div className="mb-6 p-5 rounded-2xl bg-slate-800/80 border border-slate-700/50 shadow-lg">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">🗂️ My Tickets</h2>
+      <div className="mb-6 p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-md">
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <Ticket className="w-5 h-5 text-blue-400" />
+          <span>My Tickets</span>
+        </h2>
         <p className="text-slate-400 text-sm mt-1">
-          Tickets submitted by <span className="text-indigo-400 font-semibold">{user?.fullName}</span> ({user?.role?.replace('_', ' ')}).
+          Tickets submitted by <span className="text-blue-400 font-semibold">{user?.fullName}</span> ({user?.role?.replace('_', ' ')}).
         </p>
       </div>
       <TicketList onViewTicket={(id) => navigate(`/tickets/${id}`)} filterUserId={user?.id} />
@@ -261,11 +226,23 @@ function AdminUsersView() {
   const { showToast } = useToast();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const ROLE_OPTIONS = [
+    { value: 'STUDENT', label: 'Student' },
+    { value: 'LECTURER', label: 'Lecturer' },
+    { value: 'SUPPORT_AGENT', label: 'Support Agent' },
+    { value: 'TEAM_LEAD', label: 'Team Lead / Supervisor' },
+    { value: 'KNOWLEDGE_MANAGER', label: 'Knowledge Manager' },
+    { value: 'SYSTEM_ADMINISTRATOR', label: 'System Administrator' },
+    { value: 'MANAGER_EXECUTIVE', label: 'Manager / Executive' },
+  ];
+
   const [search, setSearch] = useState('');
   const [updatingId, setUpdatingId] = useState(null);
   const [resetRequests, setResetRequests] = useState([]);
   const [issuedCredential, setIssuedCredential] = useState(null);
   const [issuingRequestId, setIssuingRequestId] = useState(null);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
@@ -339,7 +316,7 @@ function AdminUsersView() {
         payload.department = department;
       }
       const res = await axios.put(`${API_BASE}/users/${userId}/role`, payload);
-      showToast('User role updated successfully!', 'success');
+      showToast('User role updated successfully.', 'success');
       setUsers(prev => prev.map(u => u.id === userId ? res.data : u));
       setRoleModal({ isOpen: false, user: null, targetRole: '', department: 'IT' });
     } catch (err) {
@@ -352,21 +329,25 @@ function AdminUsersView() {
   const handleToggleStatus = async (userId) => {
     try {
       const res = await axios.put(`${API_BASE}/users/${userId}/status`);
-      showToast(`User status updated to ${res.data.status}`, 'success');
+      showToast(`User status updated to ${res.data.status}.`, 'success');
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: res.data.status } : u));
     } catch (err) {
       showToast('Failed to update status: ' + (err.response?.data?.message || err.message), 'error');
     }
   };
 
-  const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    setDeleteLoading(true);
     try {
-      await axios.delete(`${API_BASE}/users/${userId}`);
-      showToast('User deleted successfully', 'info');
-      setUsers(prev => prev.filter(u => u.id !== userId));
+      await axios.delete(`${API_BASE}/users/${userToDelete.id}`);
+      showToast('User deleted successfully.', 'info');
+      setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+      setUserToDelete(null);
     } catch (err) {
       showToast('Failed to delete user: ' + (err.response?.data?.message || err.message), 'error');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -388,7 +369,7 @@ function AdminUsersView() {
     setCreateLoading(true);
     try {
       const res = await axios.post(`${API_BASE}/users`, createFormData);
-      showToast('Staff account created successfully!', 'success');
+      showToast('Staff account created successfully.', 'success');
       setUsers(prev => [...prev, res.data]);
       setShowCreateModal(false);
       setCreateFormData({
@@ -417,40 +398,41 @@ function AdminUsersView() {
 
   return (
     <div className="space-y-6">
-      {/* Admin Banner */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-rose-900/40 via-slate-800/80 to-amber-900/40 border border-slate-700/50 relative overflow-hidden shadow-2xl">
-        <div className="relative z-10 max-w-2xl">
-          <span className="inline-block px-3 py-1 bg-rose-500/20 border border-rose-500/30 text-rose-300 rounded-full text-xs font-semibold uppercase tracking-wider mb-2">
+      <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900/90 to-blue-950/40 border border-slate-800 relative overflow-hidden shadow-lg">
+        <div className="relative z-10 max-w-2xl space-y-1.5">
+          <span className="inline-block px-2.5 py-0.5 bg-blue-500/10 border border-blue-500/20 text-blue-300 rounded-md text-[11px] font-semibold uppercase tracking-wider">
             System Administration
           </span>
-          <h2 className="text-3xl font-extrabold text-white tracking-tight">Users & Role Management</h2>
-          <p className="text-slate-300 text-sm mt-2 leading-relaxed">
-            Manage system users, assign roles across the university tiers, provision staff, and toggle account suspension.
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Users & Role Management</h2>
+          <p className="text-slate-300 text-sm leading-relaxed">
+            Manage system users, assign roles across university tiers, provision staff, and configure account access.
           </p>
         </div>
-        <div className="absolute right-4 bottom-0 opacity-10 text-9xl pointer-events-none select-none">👑</div>
       </div>
 
-      {/* Controls Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-800/80 p-5 rounded-2xl border border-slate-700/60 shadow-xl backdrop-blur-md">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-md">
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-sm font-semibold text-slate-300">
-            Total Users: <span className="text-indigo-400 font-bold">{users.length}</span>
+            Total Users: <span className="text-blue-400 font-bold">{users.length}</span>
           </span>
-          <button
+          <Button
             onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition flex items-center gap-1.5"
+            icon={Plus}
+            size="sm"
           >
-            ➕ Create Staff Member
-          </button>
+            Create Staff Member
+          </Button>
         </div>
-        <input
-          type="text"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search by name, username, email, role..."
-          className="w-full sm:w-80 bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-        />
+        <div className="relative w-full sm:w-80">
+          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by name, username, email, role..."
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          />
+        </div>
       </div>
 
       {/* Pending administrator-assisted password resets */}
@@ -524,15 +506,11 @@ function AdminUsersView() {
                         value={u.role}
                         disabled={updatingId === u.id || u.id === user?.id}
                         onChange={e => handleRoleSelect(u, e.target.value)}
-                        className="bg-slate-900 border border-slate-700 text-xs rounded-lg px-2.5 py-1 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                        className="bg-slate-900 border border-slate-700 text-xs rounded-lg px-2.5 py-1 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                       >
-                        <option value="STUDENT">🎓 STUDENT</option>
-                        <option value="LECTURER">👨‍🏫 LECTURER</option>
-                        <option value="SUPPORT_AGENT">🛠️ SUPPORT_AGENT</option>
-                        <option value="TEAM_LEAD">👥 TEAM_LEAD</option>
-                        <option value="KNOWLEDGE_MANAGER">📚 KNOWLEDGE_MANAGER</option>
-                        <option value="SYSTEM_ADMINISTRATOR">👑 SYSTEM_ADMINISTRATOR</option>
-                        <option value="MANAGER_EXECUTIVE">👔 MANAGER_EXECUTIVE</option>
+                        {ROLE_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
                       </select>
                     </td>
                     <td className="px-6 py-4">
@@ -557,7 +535,7 @@ function AdminUsersView() {
                     <td className="px-6 py-4 text-right">
                       {u.id !== user?.id && (
                         <button
-                          onClick={() => handleDeleteUser(u.id)}
+                          onClick={() => setUserToDelete(u)}
                           className="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 px-2.5 py-1 rounded-lg transition"
                           title="Delete User"
                         >
@@ -575,7 +553,7 @@ function AdminUsersView() {
 
       {issuedCredential && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-          <div className="w-full max-w-lg bg-slate-900 border border-indigo-500/40 rounded-3xl p-6 shadow-2xl space-y-5">
+          <div className="w-full max-w-lg bg-slate-900 border border-blue-500/40 rounded-3xl p-6 shadow-2xl space-y-5">
             <div>
               <h3 className="text-lg font-bold text-white">One-Time Reset Credential</h3>
               <p className="text-xs text-amber-300 mt-1">Copy this now. The raw credential is not stored and will not be displayed again.</p>
@@ -599,7 +577,7 @@ function AdminUsersView() {
               </button>
               <button
                 onClick={() => setIssuedCredential(null)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition"
               >
                 I Have Saved It
               </button>
@@ -608,19 +586,21 @@ function AdminUsersView() {
         </div>
       )}
 
-      {/* ── Create Staff Member Modal ── */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>➕ Create Privileged Staff Member</span>
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-5 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-400" />
+                <span>Create Privileged Staff Member</span>
               </h3>
               <button
+                type="button"
                 onClick={() => setShowCreateModal(false)}
+                aria-label="Close dialog"
                 className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -636,7 +616,7 @@ function AdminUsersView() {
                     value={createFormData.fullName}
                     onChange={e => setCreateFormData(prev => ({ ...prev, fullName: e.target.value }))}
                     placeholder="e.g. John Doe"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   />
                 </div>
                 <div>
@@ -649,7 +629,7 @@ function AdminUsersView() {
                     value={createFormData.username}
                     onChange={e => setCreateFormData(prev => ({ ...prev, username: e.target.value }))}
                     placeholder="e.g. jdoe_tech"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   />
                 </div>
               </div>
@@ -665,7 +645,7 @@ function AdminUsersView() {
                     value={createFormData.email}
                     onChange={e => setCreateFormData(prev => ({ ...prev, email: e.target.value }))}
                     placeholder="staff@sliit.lk"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   />
                 </div>
                 <div>
@@ -678,7 +658,7 @@ function AdminUsersView() {
                     value={createFormData.password}
                     onChange={e => setCreateFormData(prev => ({ ...prev, password: e.target.value }))}
                     placeholder="Min 8 chars"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   />
                 </div>
               </div>
@@ -699,15 +679,11 @@ function AdminUsersView() {
                         department: isOperational ? prev.department : ''
                       }));
                     }}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   >
-                    <option value="SUPPORT_AGENT">🛠️ SUPPORT_AGENT</option>
-                    <option value="TEAM_LEAD">👥 TEAM_LEAD</option>
-                    <option value="KNOWLEDGE_MANAGER">📚 KNOWLEDGE_MANAGER</option>
-                    <option value="MANAGER_EXECUTIVE">👔 MANAGER_EXECUTIVE</option>
-                    <option value="SYSTEM_ADMINISTRATOR">👑 SYSTEM_ADMINISTRATOR</option>
-                    <option value="LECTURER">👨‍🏫 LECTURER</option>
-                    <option value="STUDENT">🎓 STUDENT</option>
+                    {ROLE_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -719,7 +695,7 @@ function AdminUsersView() {
                     disabled={createFormData.role !== 'SUPPORT_AGENT' && createFormData.role !== 'TEAM_LEAD'}
                     required={createFormData.role === 'SUPPORT_AGENT' || createFormData.role === 'TEAM_LEAD'}
                     onChange={e => setCreateFormData(prev => ({ ...prev, department: e.target.value }))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">Select Department</option>
                     <option value="IT">IT</option>
@@ -738,7 +714,7 @@ function AdminUsersView() {
                   value={createFormData.phoneNumber}
                   onChange={e => setCreateFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
                   placeholder="+94-77-123-4567"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 />
               </div>
 
@@ -753,7 +729,7 @@ function AdminUsersView() {
                 <button
                   type="submit"
                   disabled={createLoading}
-                  className="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition shadow-lg shadow-indigo-500/20"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition shadow-md"
                 >
                   {createLoading ? 'Creating Staff...' : 'Create Account'}
                 </button>
@@ -763,22 +739,23 @@ function AdminUsersView() {
         </div>
       )}
 
-      {/* Role Change Technical Department Modal */}
       {roleModal.isOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 animate-in fade-in duration-150">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="text-base font-bold text-white">Assign Technical Department</h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Promoting <span className="text-indigo-300 font-semibold">{roleModal.user?.fullName}</span> to {roleModal.targetRole === 'SUPPORT_AGENT' ? 'Support Agent' : 'Team Lead'}
+                  Promoting <span className="text-blue-300 font-semibold">{roleModal.user?.fullName}</span> to {roleModal.targetRole === 'SUPPORT_AGENT' ? 'Support Agent' : 'Team Lead'}
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setRoleModal(prev => ({ ...prev, isOpen: false }))}
-                className="text-slate-400 hover:text-white transition text-lg"
+                aria-label="Close dialog"
+                className="text-slate-400 hover:text-white transition p-1 rounded-lg hover:bg-slate-800"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -794,7 +771,7 @@ function AdminUsersView() {
                 <select
                   value={roleModal.department}
                   onChange={e => setRoleModal(prev => ({ ...prev, department: e.target.value }))}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 >
                   <option value="IT">IT</option>
                   <option value="Maintenance">Maintenance</option>
@@ -814,7 +791,7 @@ function AdminUsersView() {
                   type="button"
                   disabled={updatingId === roleModal.user?.id}
                   onClick={() => executeRoleChange(roleModal.user?.id, roleModal.targetRole, roleModal.department)}
-                  className="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition shadow-lg shadow-indigo-500/20"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition shadow-md"
                 >
                   {updatingId === roleModal.user?.id ? 'Saving...' : 'Confirm Role Change'}
                 </button>
@@ -823,17 +800,28 @@ function AdminUsersView() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={!!userToDelete}
+        onClose={() => setUserToDelete(null)}
+        onConfirm={confirmDeleteUser}
+        title="Delete User"
+        message={`Are you sure you want to permanently delete user "${userToDelete?.fullName}" (@${userToDelete?.username})? This action cannot be undone.`}
+        confirmText="Delete User"
+        danger
+        loading={deleteLoading}
+      />
     </div>
   );
 }
 
-// ── Root App Component ──
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
           <Routes>
+            <Route path="/" element={<HomePage />} />
             <Route path="/login" element={
               <GuestOnlyRoute><LoginPage /></GuestOnlyRoute>
             } />

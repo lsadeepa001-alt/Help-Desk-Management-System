@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { UserPlus, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Register = ({ onSuccess, onSwitchToLogin }) => {
@@ -44,8 +45,8 @@ const Register = ({ onSuccess, onSwitchToLogin }) => {
   return (
     <div className="max-w-xl mx-auto bg-slate-800/90 border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-6">
       <div className="text-center space-y-2">
-        <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center text-2xl mx-auto">
-          📝
+        <div className="w-12 h-12 rounded-2xl bg-sky-600/20 border border-sky-500/30 text-sky-400 flex items-center justify-center mx-auto">
+          <UserPlus className="w-6 h-6" />
         </div>
         <h2 className="text-2xl font-extrabold text-white tracking-tight">Create University Account</h2>
         <p className="text-slate-400 text-xs">
@@ -55,7 +56,7 @@ const Register = ({ onSuccess, onSwitchToLogin }) => {
 
       {error && (
         <div className="p-4 rounded-xl text-xs font-medium bg-rose-500/10 border border-rose-500/30 text-rose-300 flex items-center gap-2">
-          <span>⚠️</span>
+          <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
@@ -137,10 +138,10 @@ const Register = ({ onSuccess, onSwitchToLogin }) => {
               name="role"
               value={formData.role}
               onChange={handleChange}
-              className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm transition"
+              className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500/50 text-sm transition"
             >
-              <option value="STUDENT">🎓 Student</option>
-              <option value="LECTURER">👨‍🏫 Lecturer / Faculty</option>
+              <option value="STUDENT">Student</option>
+              <option value="LECTURER">Lecturer / Faculty</option>
             </select>
           </div>
 
