@@ -127,14 +127,10 @@ public class UserController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid status: " + newStatus);
         }
 
-        // Prevent accidental self-demotion or self-suspension by the currently logged-in administrator
+        // Prevent privileged administrative self-modification by the currently logged-in administrator
         if (targetUser.getId().equals(currentAdmin.getId())) {
-            if (newRole != Role.SYSTEM_ADMINISTRATOR) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot remove your own System Administrator role");
-            }
-            if ("SUSPENDED".equals(newStatus) || "INACTIVE".equals(newStatus)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot suspend your own administrator account");
-            }
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "System Administrators cannot use administrative management on their own account. Personal contact details may be updated in Profile.");
         }
 
         // Technical Department Authorization Invariant
@@ -211,9 +207,16 @@ public class UserController {
 
     @PutMapping("/{id:[0-9]+}/role")
     @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<?> updateUserRole(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> updateUserRole(@PathVariable Long id, @RequestBody Map<String, String> body, Authentication authentication) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        User currentAdmin = userRepository.findByUsername(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        if (user.getId().equals(currentAdmin.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "System Administrators cannot modify their own role. Another administrator must perform this action.");
+        }
 
         String roleStr = body.get("role");
         if (roleStr == null || roleStr.isBlank()) {
@@ -250,9 +253,16 @@ public class UserController {
 
     @PutMapping("/{id:[0-9]+}/status")
     @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<?> updateUserStatus(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
+    public ResponseEntity<?> updateUserStatus(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body, Authentication authentication) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        User currentAdmin = userRepository.findByUsername(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        if (user.getId().equals(currentAdmin.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "System Administrators cannot suspend or deactivate their own account.");
+        }
 
         String newStatus;
         if (body != null && body.containsKey("status") && !body.get("status").isBlank()) {
@@ -273,11 +283,18 @@ public class UserController {
 
     @DeleteMapping("/{id:[0-9]+}")
     @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        if (!userRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id, Authentication authentication) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        User currentAdmin = userRepository.findByUsername(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        if (user.getId().equals(currentAdmin.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "System Administrators cannot delete their own account.");
         }
-        userRepository.deleteById(id);
+
+        userRepository.delete(user);
         return ResponseEntity.noContent().build();
     }
 

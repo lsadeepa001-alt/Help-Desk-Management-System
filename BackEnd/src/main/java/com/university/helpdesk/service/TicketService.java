@@ -71,8 +71,14 @@ public class TicketService {
     public Ticket createTicket(Ticket ticket, User currentUser) {
         ticket.setCreatedBy(currentUser);
 
-        if (ticket.getCategory() != null && ticket.getCategory().getId() != null) {
-            Category category = categoryRepository.findById(ticket.getCategory().getId()).orElse(null);
+        if (ticket.getCategory() != null) {
+            Category category = null;
+            if (ticket.getCategory().getId() != null) {
+                category = categoryRepository.findById(ticket.getCategory().getId()).orElse(null);
+            }
+            if (category == null && ticket.getCategory().getName() != null && !ticket.getCategory().getName().isBlank()) {
+                category = categoryRepository.findByName(ticket.getCategory().getName().trim()).orElse(null);
+            }
             ticket.setCategory(category);
         }
 

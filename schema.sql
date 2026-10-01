@@ -129,12 +129,13 @@ CREATE TABLE ticket_comments (
 CREATE TABLE ticket_attachments (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     ticket_id BIGINT NOT NULL,
-    file_name VARCHAR(255) NOT NULL,
     original_file_name VARCHAR(255) NOT NULL,
+    stored_file_name VARCHAR(255) NOT NULL UNIQUE,
     content_type VARCHAR(100) NOT NULL,
     file_size BIGINT NOT NULL,
+    storage_path VARCHAR(500) NOT NULL,
     uploaded_by BIGINT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_attachments_ticket FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
     CONSTRAINT fk_attachments_uploaded_by FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_attachments_ticket (ticket_id),
@@ -274,8 +275,21 @@ CREATE TABLE analytics_insights (
 -- Required Reference / Seed Data
 -- ============================================================================
 INSERT INTO categories (name, description) VALUES
+-- IT Department Categories
 ('Network & Wi-Fi', 'Issues related to campus Wi-Fi, Ethernet connection, VPN access'),
 ('LMS & Student Portal', 'Moodle LMS, Student Registration System, Grade Portal issues'),
 ('Hardware & Lab Equipment', 'Desktop PCs, projectors, lab printers, monitors'),
 ('Software & Licensing', 'Software installation, MATLAB, SPSS, Office 365 license requests'),
-('Account & Security', 'Password resets, 2FA, unauthorized access, email access');
+('Account & Security', 'Password resets, 2FA, unauthorized access, email access'),
+-- Maintenance Department Categories
+('Air Conditioning & HVAC', 'Temperature regulation, AC leaks, filter issues in lecture halls and labs'),
+('Electrical & Lighting', 'Power socket outages, flickering lights, circuit breaker trips'),
+('Plumbing & Water Services', 'Restroom leaks, water dispenser maintenance, clogged drains'),
+('Furniture & Classroom Repair', 'Damaged lecture chairs, broken whiteboards, podium repairs'),
+('Elevator & Building Access', 'Lift malfunctions, automatic door issues, staircase maintenance'),
+-- Security Department Categories
+('Lost & Found Property', 'Reporting lost student IDs, laptops, backpacks, or finding lost items'),
+('Access Card & Gate Pass', 'Smart card RFID failures, boom barrier access, visitor badges'),
+('Parking & Vehicle Permit', 'Vehicle parking stickers, illegal parking reports, EV charging'),
+('Campus Safety & Incident Report', 'Safety hazards, unauthorized visitors, emergency reports'),
+('Surveillance & CCTV Request', 'Camera footage review requests for documented security incidents');

@@ -887,7 +887,7 @@ export default function TicketDetails({ ticketId, onBack }) {
             <div className="flex-1">
               <h3 className="text-base font-bold text-white">Verify Ticket Resolution</h3>
               <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                The IT support team has marked this ticket as resolved. Please review the resolution notes.
+                The support team has marked this ticket as resolved. Please review the resolution notes.
                 If satisfied, please confirm resolution to close the ticket. If the issue persists, you can reopen it with details.
               </p>
             </div>
@@ -1258,7 +1258,7 @@ export default function TicketDetails({ ticketId, onBack }) {
             </div>
 
             <p className="text-xs text-slate-300">
-              Please explain why this issue is still unresolved so the IT support team can follow up effectively:
+              Please explain why this issue is still unresolved so the support team can follow up effectively:
             </p>
 
             <form onSubmit={handleReopenTicket} className="space-y-4">

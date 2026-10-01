@@ -92,6 +92,20 @@ public class Ticket {
     public Category getCategory() { return category; }
     public void setCategory(Category category) { this.category = category; }
 
+    @Transient
+    public Long getCategoryId() {
+        return this.category != null ? this.category.getId() : null;
+    }
+
+    @Transient
+    public void setCategoryId(Long categoryId) {
+        if (categoryId != null) {
+            Category cat = new Category();
+            cat.setId(categoryId);
+            this.category = cat;
+        }
+    }
+
     public Priority getPriority() { return priority; }
     public void setPriority(Priority priority) { this.priority = priority; }
 

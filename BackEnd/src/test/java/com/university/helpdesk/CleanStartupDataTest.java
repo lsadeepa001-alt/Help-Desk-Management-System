@@ -72,14 +72,14 @@ class CleanStartupDataTest {
         assertEquals(0, userRepository.findByRole(Role.TEAM_LEAD).size());
         assertEquals(0, userRepository.findByRole(Role.KNOWLEDGE_MANAGER).size());
         assertEquals(0, userRepository.findByRole(Role.MANAGER_EXECUTIVE).size());
-        assertEquals(5, categoryRepository.count());
+        assertEquals(15, categoryRepository.count());
         assertEquals(0, ticketRepository.count());
         assertEquals(0, ticketCommentRepository.count());
         assertEquals(0, articleRepository.count());
 
         dataSeeder.run();
         assertEquals(1, userRepository.findByRole(Role.SYSTEM_ADMINISTRATOR).size());
-        assertEquals(5, categoryRepository.count());
+        assertEquals(15, categoryRepository.count());
 
         mockMvc.perform(get("/kb/articles"))
                 .andExpect(status().isOk())

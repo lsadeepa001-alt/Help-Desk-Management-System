@@ -82,11 +82,26 @@ public class DataSeeder implements CommandLineRunner {
 
     private void seedTicketCategories() {
         List<Category> categories = List.of(
+                // IT Categories
                 new Category(null, "Network & Wi-Fi", "Issues related to campus Wi-Fi, Ethernet connection, VPN access"),
                 new Category(null, "LMS & Student Portal", "LMS, registration, and grade portal issues"),
                 new Category(null, "Hardware & Lab Equipment", "Desktop PCs, projectors, lab printers, and monitors"),
                 new Category(null, "Software & Licensing", "Software installation and academic licensing requests"),
-                new Category(null, "Account & Security", "Password resets, multi-factor authentication, and account access")
+                new Category(null, "Account & Security", "Password resets, multi-factor authentication, and account access"),
+
+                // Maintenance Categories
+                new Category(null, "Air Conditioning & HVAC", "Climate control, heating, cooling, and ventilation repairs"),
+                new Category(null, "Electrical & Lighting", "Power outlets, classroom lighting, and electrical maintenance"),
+                new Category(null, "Plumbing & Water Facilities", "Restroom fixtures, leaks, drainage, and water supply issues"),
+                new Category(null, "Classroom Furniture & Fixtures", "Desks, chairs, whiteboards, and auditorium seating repairs"),
+                new Category(null, "Building Maintenance & Cleaning", "Structural upkeep, door hardware, windows, and custodial requests"),
+
+                // Security Categories
+                new Category(null, "Campus Access & Keycard", "Electronic access control, student/staff badges, and gate permissions"),
+                new Category(null, "Lost & Found Property", "Inquiries and reports regarding missing or recovered personal belongings"),
+                new Category(null, "Parking & Vehicle Pass", "Vehicle permits, parking zone inquiries, and traffic safety concerns"),
+                new Category(null, "Emergency & Incident Reporting", "Immediate safety incidents, urgent alerts, and hazard reports"),
+                new Category(null, "Surveillance & Safety Concern", "CCTV inquiries, physical safety hazards, and security escort requests")
         );
         categories.stream()
                 .filter(category -> categoryRepository.findByName(category.getName()).isEmpty())

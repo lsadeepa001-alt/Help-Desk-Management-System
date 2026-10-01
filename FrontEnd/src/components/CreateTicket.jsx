@@ -14,32 +14,33 @@ import {
 
 const API_URL = 'http://localhost:8080/api/tickets';
 
-const DEPARTMENT_CATEGORIES = {
+const DEPARTMENT_CATEGORY_NAMES = {
   IT: [
-    { id: 1, name: 'Network & Wi-Fi' },
-    { id: 2, name: 'LMS & Student Portal' },
-    { id: 3, name: 'Hardware & Lab Equipment' },
-    { id: 4, name: 'Software & Licensing' },
-    { id: 5, name: 'Account & Security' },
+    'Network & Wi-Fi',
+    'LMS & Student Portal',
+    'Hardware & Lab Equipment',
+    'Software & Licensing',
+    'Account & Security',
   ],
   MAINTENANCE: [
-    { id: 1, name: 'Air Conditioning & HVAC' },
-    { id: 2, name: 'Electrical & Lighting' },
-    { id: 3, name: 'Plumbing & Water Facilities' },
-    { id: 4, name: 'Classroom Furniture & Fixtures' },
-    { id: 5, name: 'Building Maintenance & Cleaning' },
+    'Air Conditioning & HVAC',
+    'Electrical & Lighting',
+    'Plumbing & Water Facilities',
+    'Classroom Furniture & Fixtures',
+    'Building Maintenance & Cleaning',
   ],
   SECURITY: [
-    { id: 1, name: 'Campus Access & Keycard' },
-    { id: 2, name: 'Lost & Found Property' },
-    { id: 3, name: 'Parking & Vehicle Pass' },
-    { id: 4, name: 'Emergency & Incident Reporting' },
-    { id: 5, name: 'Surveillance & Safety Concern' },
+    'Campus Access & Keycard',
+    'Lost & Found Property',
+    'Parking & Vehicle Pass',
+    'Emergency & Incident Reporting',
+    'Surveillance & Safety Concern',
   ],
 };
 
 const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
   const { user, isAuthenticated } = useAuth();
+  const [categories, setCategories] = useState([]);
 
   const [formData, setFormData] = useState({
     title: prefillData?.title || '',
@@ -47,8 +48,26 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
     department: 'IT',
     priority: 'MEDIUM',
     location: '',
-    categoryId: '1',
+    categoryId: '',
   });
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCategories = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/categories`);
+        if (isMounted && Array.isArray(res.data) && res.data.length > 0) {
+          setCategories(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to load categories from backend:', err);
+      }
+    };
+    fetchCategories();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (prefillData) {
@@ -63,7 +82,21 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  const activeCategories = DEPARTMENT_CATEGORIES[formData.department] || DEPARTMENT_CATEGORIES.IT;
+  const activeNames = DEPARTMENT_CATEGORY_NAMES[formData.department] || DEPARTMENT_CATEGORY_NAMES.IT;
+  const activeCategories = categories.length > 0
+    ? categories.filter((c) => activeNames.some((n) => n.toLowerCase() === (c.name || '').toLowerCase()))
+    : activeNames.map((name, idx) => ({ id: `temp-${idx}`, name }));
+
+  // Automatically keep categoryId pointing to an existing category ID for the active department
+  useEffect(() => {
+    if (activeCategories.length > 0) {
+      const isValid = activeCategories.some((c) => String(c.id) === String(formData.categoryId));
+      if (!isValid && activeCategories[0]) {
+        setFormData((prev) => ({ ...prev, categoryId: String(activeCategories[0].id) }));
+      }
+    }
+  }, [activeCategories, formData.categoryId]);
+
   const currentCategory = activeCategories.find((c) => String(c.id) === String(formData.categoryId));
   const categoryName = currentCategory ? currentCategory.name : '';
 
@@ -98,11 +131,14 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === 'department') {
-      const newCats = DEPARTMENT_CATEGORIES[value] || DEPARTMENT_CATEGORIES.IT;
-      setFormData(prev => ({
+      const activeNamesForDept = DEPARTMENT_CATEGORY_NAMES[value] || DEPARTMENT_CATEGORY_NAMES.IT;
+      const deptCats = categories.filter((c) =>
+        activeNamesForDept.some((n) => n.toLowerCase() === (c.name || '').toLowerCase())
+      );
+      setFormData((prev) => ({
         ...prev,
         department: value,
-        categoryId: String(newCats[0]?.id || 1),
+        categoryId: deptCats[0] ? String(deptCats[0].id) : '',
       }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -162,6 +198,18 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
 
     const generatedTicketNum = `TICK-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
+    const selectedCat = categories.find((c) => String(c.id) === String(formData.categoryId))
+      || activeCategories.find((c) => String(c.id) === String(formData.categoryId));
+
+    let categoryObj = null;
+    if (selectedCat && typeof selectedCat.id === 'number') {
+      categoryObj = { id: selectedCat.id, name: selectedCat.name };
+    } else if (formData.categoryId && !isNaN(Number(formData.categoryId))) {
+      categoryObj = { id: parseInt(formData.categoryId, 10) };
+    } else if (selectedCat && selectedCat.name) {
+      categoryObj = { name: selectedCat.name };
+    }
+
     const payload = {
       ticketNumber: generatedTicketNum,
       title: formData.title,
@@ -170,7 +218,7 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
       priority: formData.priority,
       status: 'OPEN',
       location: isLocationVisible && formData.location?.trim() ? formData.location.trim() : null,
-      category: { id: parseInt(formData.categoryId) },
+      category: categoryObj,
       createdBy: { id: user.id },
     };
 
@@ -202,7 +250,7 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
             department: 'IT',
             priority: 'MEDIUM',
             location: '',
-            categoryId: '1',
+            categoryId: activeCategories[0] ? String(activeCategories[0].id) : '',
           });
           setSelectedFiles([]);
           if (onTicketCreated) onTicketCreated();
@@ -221,7 +269,7 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
         department: 'IT',
         priority: 'MEDIUM',
         location: '',
-        categoryId: '1',
+        categoryId: activeCategories[0] ? String(activeCategories[0].id) : '',
       });
       setSelectedFiles([]);
 

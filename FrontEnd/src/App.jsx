@@ -287,6 +287,10 @@ function AdminUsersView() {
   }, [fetchUsers]);
 
   const handleOpenEditConfirm = (targetUser) => {
+    if (targetUser?.id === user?.id) {
+      showToast('System Administrators cannot use administrative management on their own account. Personal details may be updated in Profile.', 'error');
+      return;
+    }
     setUserToEditConfirm(targetUser);
   };
 
@@ -345,6 +349,10 @@ function AdminUsersView() {
   };
 
   const handleToggleStatus = async (userId) => {
+    if (userId === user?.id) {
+      showToast('System Administrators cannot suspend or deactivate their own account.', 'error');
+      return;
+    }
     setStatusLoadingId(userId);
     try {
       const res = await axios.put(`${API_BASE}/users/${userId}/status`);
@@ -359,6 +367,11 @@ function AdminUsersView() {
 
   const confirmDeleteUser = async () => {
     if (!userToDelete) return;
+    if (userToDelete.id === user?.id) {
+      showToast('System Administrators cannot delete their own account.', 'error');
+      setUserToDelete(null);
+      return;
+    }
     setDeleteLoading(true);
     try {
       await axios.delete(`${API_BASE}/users/${userToDelete.id}`);
@@ -494,17 +507,21 @@ function AdminUsersView() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleOpenEditConfirm(u)}
-                          className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 transition flex items-center gap-1.5"
-                          title="Edit User Details"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                          <span>Edit</span>
-                        </button>
+                      {u.id === user?.id ? (
+                        <span className="text-xs font-medium text-slate-400 italic">
+                          Current Account (Manage via Profile)
+                        </span>
+                      ) : (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleOpenEditConfirm(u)}
+                            className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 transition flex items-center gap-1.5"
+                            title="Edit User Details"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span>Edit</span>
+                          </button>
 
-                        {u.id !== user?.id && (
                           <button
                             onClick={() => handleToggleStatus(u.id)}
                             disabled={statusLoadingId === u.id}
@@ -512,9 +529,7 @@ function AdminUsersView() {
                           >
                             {(u.status || 'ACTIVE') === 'ACTIVE' ? 'Suspend' : 'Activate'}
                           </button>
-                        )}
 
-                        {u.id !== user?.id && (
                           <button
                             onClick={() => setUserToDelete(u)}
                             className="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 px-2.5 py-1 rounded-lg transition"
@@ -522,8 +537,8 @@ function AdminUsersView() {
                           >
                             Delete
                           </button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

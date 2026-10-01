@@ -37,6 +37,7 @@ class TicketWorkflowSecurityTest {
     @Autowired private TicketCommentRepository commentRepository;
     @Autowired private FeedbackRepository feedbackRepository;
     @Autowired private NotificationRepository notificationRepository;
+    @Autowired private CategoryRepository categoryRepository;
     @Autowired private JwtUtils jwtUtils;
     @Autowired private PasswordEncoder passwordEncoder;
 
@@ -322,6 +323,73 @@ class TicketWorkflowSecurityTest {
         assertTrue(notificationRepository.findByRecipientIdOrderByCreatedAtDesc(owner.getId()).stream()
                 .noneMatch(notification -> ticket.getId().equals(notification.getRelatedTicketId())));
         assertFalse(Files.exists(attachmentPath));
+    }
+
+    @Test
+    @DisplayName("Ticket creation properly resolves categories across IT, Maintenance, and Security")
+    void ticketCreationResolvesCategoriesAcrossAllDepartments() throws Exception {
+        User student = createUser(Role.STUDENT, null);
+        String studentToken = bearerToken(student);
+
+        Category itCat = categoryRepository.findByName("Network & Wi-Fi").orElseThrow();
+        Category maintCat = categoryRepository.findByName("Air Conditioning & HVAC").orElseThrow();
+        Category secCat = categoryRepository.findByName("Lost & Found Property").orElseThrow();
+
+        // 1. IT Ticket with category ID
+        mockMvc.perform(post("/tickets")
+                        .header("Authorization", studentToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title":"Wi-Fi outage in Lab 3",
+                                  "description":"Cannot connect to access point",
+                                  "priority":"HIGH",
+                                  "department":"IT",
+                                  "categoryId": %d
+                                }
+                                """.formatted(itCat.getId())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.department").value("IT"))
+                .andExpect(jsonPath("$.category.id").value(itCat.getId()))
+                .andExpect(jsonPath("$.category.name").value("Network & Wi-Fi"));
+
+        // 2. Maintenance Ticket with category ID
+        mockMvc.perform(post("/tickets")
+                        .header("Authorization", studentToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title":"AC dripping water",
+                                  "description":"Water leaking from indoor unit in Hall B",
+                                  "priority":"MEDIUM",
+                                  "department":"Maintenance",
+                                  "categoryId": %d,
+                                  "location":"Hall B, Level 2"
+                                }
+                                """.formatted(maintCat.getId())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.department").value("Maintenance"))
+                .andExpect(jsonPath("$.category.id").value(maintCat.getId()))
+                .andExpect(jsonPath("$.category.name").value("Air Conditioning & HVAC"))
+                .andExpect(jsonPath("$.location").value("Hall B, Level 2"));
+
+        // 3. Security Ticket with category ID
+        mockMvc.perform(post("/tickets")
+                        .header("Authorization", studentToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title":"Lost blue student backpack",
+                                  "description":"Left behind in Library study carrel 12",
+                                  "priority":"LOW",
+                                  "department":"Security",
+                                  "categoryId": %d
+                                }
+                                """.formatted(secCat.getId())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.department").value("Security"))
+                .andExpect(jsonPath("$.category.id").value(secCat.getId()))
+                .andExpect(jsonPath("$.category.name").value("Lost & Found Property"));
     }
 
     private User createUser(Role role, String department) {
