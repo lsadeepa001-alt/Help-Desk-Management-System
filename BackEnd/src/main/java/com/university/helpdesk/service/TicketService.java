@@ -71,16 +71,21 @@ public class TicketService {
     public Ticket createTicket(Ticket ticket, User currentUser) {
         ticket.setCreatedBy(currentUser);
 
-        if (ticket.getCategory() != null) {
-            Category category = null;
-            if (ticket.getCategory().getId() != null) {
-                category = categoryRepository.findById(ticket.getCategory().getId()).orElse(null);
-            }
-            if (category == null && ticket.getCategory().getName() != null && !ticket.getCategory().getName().isBlank()) {
-                category = categoryRepository.findByName(ticket.getCategory().getName().trim()).orElse(null);
-            }
-            ticket.setCategory(category);
+        if (ticket.getTitle() == null || ticket.getTitle().trim().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Title is required");
         }
+        if (ticket.getTitle().trim().length() > 200) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Title must not exceed 200 characters");
+        }
+        ticket.setTitle(ticket.getTitle().trim());
+
+        if (ticket.getDescription() == null || ticket.getDescription().trim().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Description is required");
+        }
+        if (ticket.getDescription().trim().length() > 4000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Description must not exceed 4000 characters");
+        }
+        ticket.setDescription(ticket.getDescription().trim());
 
         String dept = ticket.getDepartment();
         if (dept == null || dept.isBlank()) {
@@ -89,8 +94,40 @@ public class TicketService {
         }
         ticket.setDepartment(normalizeTechnicalDepartment(dept));
 
+        if (ticket.getCategory() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is required");
+        }
+        Category category = null;
+        if (ticket.getCategory().getId() != null) {
+            category = categoryRepository.findById(ticket.getCategory().getId()).orElse(null);
+        }
+        if (category == null && ticket.getCategory().getName() != null && !ticket.getCategory().getName().isBlank()) {
+            category = categoryRepository.findByName(ticket.getCategory().getName().trim()).orElse(null);
+        }
+        if (category == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valid category is required");
+        }
+        if (category.getDepartment() != null && !category.getDepartment().equalsIgnoreCase(ticket.getDepartment())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    String.format("Category '%s' belongs to %s and cannot be paired with department %s",
+                            category.getName(), category.getDepartment(), ticket.getDepartment()));
+        }
+        ticket.setCategory(category);
+
+        if (currentUser != null && (currentUser.getRole() == Role.STUDENT || currentUser.getRole() == Role.LECTURER)) {
+            if (ticket.getPriority() == Priority.URGENT || ticket.getPriority() == Priority.CRITICAL) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Requesters cannot set URGENT or CRITICAL priority. Allowed priorities: LOW, MEDIUM, HIGH");
+            }
+        }
+
         if (ticket.getPriority() == null) {
             ticket.setPriority(Priority.MEDIUM);
+        }
+
+        if (ticket.getLocation() != null) {
+            String trimmedLoc = ticket.getLocation().trim();
+            ticket.setLocation(trimmedLoc.isEmpty() ? null : trimmedLoc);
         }
 
         ticket.setStatus(Status.OPEN);

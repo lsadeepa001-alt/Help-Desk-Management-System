@@ -84,8 +84,13 @@ const CreateTicket = ({ onTicketCreated, onOpenAuth, prefillData }) => {
 
   const activeNames = DEPARTMENT_CATEGORY_NAMES[formData.department] || DEPARTMENT_CATEGORY_NAMES.IT;
   const activeCategories = categories.length > 0
-    ? categories.filter((c) => activeNames.some((n) => n.toLowerCase() === (c.name || '').toLowerCase()))
-    : activeNames.map((name, idx) => ({ id: `temp-${idx}`, name }));
+    ? categories.filter((c) => {
+        if (c.department) {
+          return c.department.toUpperCase() === (formData.department || '').toUpperCase();
+        }
+        return activeNames.some((n) => n.toLowerCase() === (c.name || '').toLowerCase());
+      })
+    : activeNames.map((name, idx) => ({ id: `temp-${idx}`, name, department: formData.department }));
 
   // Automatically keep categoryId pointing to an existing category ID for the active department
   useEffect(() => {

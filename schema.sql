@@ -71,8 +71,10 @@ CREATE TABLE password_reset_tokens (
 CREATE TABLE categories (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
+    department VARCHAR(100) NOT NULL,
     description VARCHAR(255) DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_categories_department (department)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
@@ -274,22 +276,22 @@ CREATE TABLE analytics_insights (
 -- ============================================================================
 -- Required Reference / Seed Data
 -- ============================================================================
-INSERT INTO categories (name, description) VALUES
+INSERT INTO categories (name, department, description) VALUES
 -- IT Department Categories
-('Network & Wi-Fi', 'Issues related to campus Wi-Fi, Ethernet connection, VPN access'),
-('LMS & Student Portal', 'Moodle LMS, Student Registration System, Grade Portal issues'),
-('Hardware & Lab Equipment', 'Desktop PCs, projectors, lab printers, monitors'),
-('Software & Licensing', 'Software installation, MATLAB, SPSS, Office 365 license requests'),
-('Account & Security', 'Password resets, 2FA, unauthorized access, email access'),
+('Network & Wi-Fi', 'IT', 'Issues related to campus Wi-Fi, Ethernet connection, VPN access'),
+('LMS & Student Portal', 'IT', 'LMS, registration, and grade portal issues'),
+('Hardware & Lab Equipment', 'IT', 'Desktop PCs, projectors, lab printers, and monitors'),
+('Software & Licensing', 'IT', 'Software installation and academic licensing requests'),
+('Account & Security', 'IT', 'Password resets, multi-factor authentication, and account access'),
 -- Maintenance Department Categories
-('Air Conditioning & HVAC', 'Temperature regulation, AC leaks, filter issues in lecture halls and labs'),
-('Electrical & Lighting', 'Power socket outages, flickering lights, circuit breaker trips'),
-('Plumbing & Water Services', 'Restroom leaks, water dispenser maintenance, clogged drains'),
-('Furniture & Classroom Repair', 'Damaged lecture chairs, broken whiteboards, podium repairs'),
-('Elevator & Building Access', 'Lift malfunctions, automatic door issues, staircase maintenance'),
+('Air Conditioning & HVAC', 'Maintenance', 'Climate control, heating, cooling, and ventilation repairs'),
+('Electrical & Lighting', 'Maintenance', 'Power outlets, classroom lighting, and electrical maintenance'),
+('Plumbing & Water Facilities', 'Maintenance', 'Restroom fixtures, leaks, drainage, and water supply issues'),
+('Classroom Furniture & Fixtures', 'Maintenance', 'Desks, chairs, whiteboards, and auditorium seating repairs'),
+('Building Maintenance & Cleaning', 'Maintenance', 'Structural upkeep, door hardware, windows, and custodial requests'),
 -- Security Department Categories
-('Lost & Found Property', 'Reporting lost student IDs, laptops, backpacks, or finding lost items'),
-('Access Card & Gate Pass', 'Smart card RFID failures, boom barrier access, visitor badges'),
-('Parking & Vehicle Permit', 'Vehicle parking stickers, illegal parking reports, EV charging'),
-('Campus Safety & Incident Report', 'Safety hazards, unauthorized visitors, emergency reports'),
-('Surveillance & CCTV Request', 'Camera footage review requests for documented security incidents');
+('Campus Access & Keycard', 'Security', 'Electronic access control, student/staff badges, and gate permissions'),
+('Lost & Found Property', 'Security', 'Inquiries and reports regarding missing or recovered personal belongings'),
+('Parking & Vehicle Pass', 'Security', 'Vehicle permits, parking zone inquiries, and traffic safety concerns'),
+('Emergency & Incident Reporting', 'Security', 'Immediate safety incidents, urgent alerts, and hazard reports'),
+('Surveillance & Safety Concern', 'Security', 'CCTV inquiries, physical safety hazards, and security escort requests');

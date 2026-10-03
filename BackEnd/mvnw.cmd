@@ -8,7 +8,7 @@
 @SET __MVNW_ERROR__=
 @SET __MVNW_PSMODULEP_SAVE__=%PSModulePath%
 @SET PSModulePath=
-@FOR /F "usebackq tokens=1* delims==" %%A IN (`powershell -noprofile "& {$scriptDir='%~dp0teleType'; $, ='distributionUrl'; foreach($line in (Get-Content ($scriptDir+'\..\\.mvn\\wrapper\\maven-wrapper.properties'))) { if ($line -match '^distributionUrl=(.*)') { Write-Output ('__MVNW_CMD__='+$matches[1]); break } }}"`) DO @(
+@FOR /F "usebackq tokens=1* delims==" %%A IN (`powershell -noprofile "& {$prop = Get-Content '%~dp0\.mvn\wrapper\maven-wrapper.properties' | ConvertFrom-StringData; if ($prop.distributionUrl) { Write-Output ('__MVNW_CMD__='+$prop.distributionUrl) } }"`) DO @(
   IF /I "%%A"=="__MVNW_CMD__" SET __MVNW_CMD__=%%B
 )
 @SET PSModulePath=%__MVNW_PSMODULEP_SAVE__%
@@ -20,13 +20,6 @@
   @ECHO +----------------------------------------------------------+
 )
 
-@REM Extension to allow automatically downloading the maven-wrapper.jar
-@REM from a configured repository
-@SET WRAPPER_JAR="%~dp0\.mvn\wrapper\maven-wrapper.jar"
-
-@REM If the maven-wrapper.jar already exists, skip download
-@IF EXIST %WRAPPER_JAR% GOTO runMaven
-
 @REM Determine java command to use
 @SET JAVA_EXE=java.exe
 @SET WRAPPER_LAUNCHER=org.apache.maven.wrapper.MavenWrapperMain
@@ -36,9 +29,16 @@
   @SET "JAVA_EXE=%JAVA_HOME%\bin\java.exe"
 )
 
+@REM Extension to allow automatically downloading the maven-wrapper.jar
+@REM from a configured repository
+@SET WRAPPER_JAR="%~dp0\.mvn\wrapper\maven-wrapper.jar"
+
+@REM If the maven-wrapper.jar already exists, skip download
+@IF EXIST %WRAPPER_JAR% GOTO runMaven
+
 @REM Fallback: download wrapper jar with PowerShell
 @IF NOT EXIST %WRAPPER_JAR% (
-  @FOR /F "usebackq tokens=1* delims==" %%A IN (`powershell -noprofile "& {$scriptDir='%~dp0teleType'; $, ='wrapperUrl'; foreach($line in (Get-Content ($scriptDir+'\..\\.mvn\\wrapper\\maven-wrapper.properties'))) { if ($line -match '^wrapperUrl=(.*)') { Write-Output ('__MVNW_CMD__='+$matches[1]); break } }}"`) DO @(
+  @FOR /F "usebackq tokens=1* delims==" %%A IN (`powershell -noprofile "& {$prop = Get-Content '%~dp0\.mvn\wrapper\maven-wrapper.properties' | ConvertFrom-StringData; if ($prop.wrapperUrl) { Write-Output ('__MVNW_CMD__='+$prop.wrapperUrl) } }"`) DO @(
     IF /I "%%A"=="__MVNW_CMD__" (
       powershell -noprofile -Command "Invoke-WebRequest -Uri '%%B' -OutFile '%~dp0\.mvn\wrapper\maven-wrapper.jar'"
     )

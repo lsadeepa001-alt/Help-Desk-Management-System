@@ -2,6 +2,8 @@ package com.university.helpdesk.controller;
 
 import com.university.helpdesk.model.KbCategory;
 import com.university.helpdesk.model.KnowledgeBaseArticle;
+import com.university.helpdesk.model.Role;
+import com.university.helpdesk.model.Status;
 import com.university.helpdesk.model.Ticket;
 import com.university.helpdesk.model.User;
 import com.university.helpdesk.repository.KnowledgeBaseArticleRepository;
@@ -165,7 +167,7 @@ public class KbController {
         User currentUser = userRepository.findByUsername(auth.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-        Optional<Ticket> ticketOpt = ticketRepository.findByTicketNumber(ticketNumber.trim().toUpperCase());
+        Optional<Ticket> ticketOpt = ticketRepository.findByTicketNumberIgnoreCase(ticketNumber.trim());
 
         if (ticketOpt.isEmpty()) {
             // Try parsing ID if numeric
@@ -182,19 +184,32 @@ public class KbController {
 
         Ticket t = ticketOpt.get();
 
-        // Object-level access: creator, assigned agent, same-dept staff, or admin
+        // Object-level access: creator, assigned agent, unassigned in same-dept for agent, or same-dept for lead, or admin
         boolean isAdmin = auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_SYSTEM_ADMINISTRATOR"));
         boolean isCreator = t.getCreatedBy() != null && t.getCreatedBy().getId().equals(currentUser.getId());
-        boolean isAssignedAgent = t.getAssignedTo() != null && t.getAssignedTo().getId().equals(currentUser.getId());
-        boolean isSameDeptStaff = t.getDepartment() != null && currentUser.getDepartment() != null
-                && t.getDepartment().equalsIgnoreCase(currentUser.getDepartment())
-                && (currentUser.getRole().name().equals("SUPPORT_AGENT")
-                    || currentUser.getRole().name().equals("TEAM_LEAD"));
 
-        if (!isAdmin && !isCreator && !isAssignedAgent && !isSameDeptStaff) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("found", false, "message", "Access denied: You cannot view this ticket's status."));
+        if (!isAdmin && !isCreator) {
+            Role role = currentUser.getRole();
+            boolean isCancelledOrRejected = t.getStatus() == Status.CANCELLED || t.getStatus() == Status.REJECTED;
+            boolean isSameDept = t.getDepartment() != null && currentUser.getDepartment() != null
+                    && t.getDepartment().equalsIgnoreCase(currentUser.getDepartment());
+
+            if (role == Role.SUPPORT_AGENT) {
+                boolean isAssignedToOther = t.getAssignedTo() != null && !t.getAssignedTo().getId().equals(currentUser.getId());
+                if (isCancelledOrRejected || !isSameDept || isAssignedToOther) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(Map.of("found", false, "message", "Access denied: You cannot view this ticket's status."));
+                }
+            } else if (role == Role.TEAM_LEAD) {
+                if (isCancelledOrRejected || !isSameDept) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(Map.of("found", false, "message", "Access denied: You cannot view this ticket's status."));
+                }
+            } else {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("found", false, "message", "Access denied: You cannot view this ticket's status."));
+            }
         }
 
         return ResponseEntity.ok(Map.of(

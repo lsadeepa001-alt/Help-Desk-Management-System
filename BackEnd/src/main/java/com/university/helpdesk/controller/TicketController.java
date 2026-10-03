@@ -199,6 +199,13 @@ public class TicketController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You are not authorized to view this ticket");
         }
 
+        if (hasRole(auth, "SUPPORT_AGENT")) {
+            if (ticket.getAssignedTo() != null && !ticket.getAssignedTo().getId().equals(currentUser.getId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Access denied: Support agents cannot view tickets assigned to other agents");
+            }
+        }
+
         return ResponseEntity.ok(ticket);
     }
 
@@ -234,27 +241,74 @@ public class TicketController {
 
         if (body.containsKey("title") && body.get("title") != null) {
             String title = body.get("title").toString().trim();
-            if (!title.isEmpty()) ticket.setTitle(title);
+            if (title.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Title cannot be blank");
+            }
+            if (title.length() > 200) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Title must not exceed 200 characters");
+            }
+            ticket.setTitle(title);
         }
         if (body.containsKey("description") && body.get("description") != null) {
             String desc = body.get("description").toString().trim();
-            if (!desc.isEmpty()) ticket.setDescription(desc);
+            if (desc.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Description cannot be blank");
+            }
+            if (desc.length() > 4000) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Description must not exceed 4000 characters");
+            }
+            ticket.setDescription(desc);
         }
+
+        String targetDept = ticket.getDepartment();
         if (body.containsKey("department") && body.get("department") != null) {
             String newDept = body.get("department").toString().trim();
-            if (!newDept.isEmpty()) ticket.setDepartment(normalizeTechnicalDepartment(newDept));
+            if (!newDept.isEmpty()) {
+                targetDept = normalizeTechnicalDepartment(newDept);
+                ticket.setDepartment(targetDept);
+            }
         }
+
         if (body.containsKey("priority") && body.get("priority") != null) {
             try {
-                ticket.setPriority(Priority.valueOf(body.get("priority").toString().toUpperCase()));
-            } catch (IllegalArgumentException ignored) {}
+                Priority p = Priority.valueOf(body.get("priority").toString().toUpperCase());
+                if (currentUser.getRole() == Role.STUDENT || currentUser.getRole() == Role.LECTURER) {
+                    if (p == Priority.URGENT || p == Priority.CRITICAL) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Requesters cannot set URGENT or CRITICAL priority. Allowed priorities: LOW, MEDIUM, HIGH");
+                    }
+                }
+                ticket.setPriority(p);
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid priority: " + body.get("priority"));
+            }
         }
-        if (body.containsKey("location") && body.get("location") != null) {
-            ticket.setLocation(body.get("location").toString().trim());
+
+        if (body.containsKey("location")) {
+            Object locObj = body.get("location");
+            if (locObj != null) {
+                String loc = locObj.toString().trim();
+                ticket.setLocation(loc.isEmpty() ? null : loc);
+            } else {
+                ticket.setLocation(null);
+            }
         }
+
         if (body.containsKey("categoryId") && body.get("categoryId") != null) {
             Long catId = Long.valueOf(body.get("categoryId").toString());
-            categoryRepository.findById(catId).ifPresent(ticket::setCategory);
+            Category cat = categoryRepository.findById(catId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category not found"));
+            if (cat.getDepartment() != null && !cat.getDepartment().equalsIgnoreCase(targetDept)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        String.format("Category '%s' belongs to %s and cannot be paired with department %s",
+                                cat.getName(), cat.getDepartment(), targetDept));
+            }
+            ticket.setCategory(cat);
+        } else if (ticket.getCategory() != null && ticket.getCategory().getDepartment() != null
+                && !ticket.getCategory().getDepartment().equalsIgnoreCase(targetDept)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    String.format("Current category '%s' belongs to %s and cannot be paired with department %s. Please select a valid category.",
+                            ticket.getCategory().getName(), ticket.getCategory().getDepartment(), targetDept));
         }
 
         Ticket saved = ticketRepository.save(ticket);
@@ -314,6 +368,26 @@ public class TicketController {
 
         String newDepartment = normalizeTechnicalDepartment(body.get("department"));
         ticket.setDepartment(newDepartment);
+
+        // Validate and apply category during rerouting
+        if (body.containsKey("categoryId") && body.get("categoryId") != null && !body.get("categoryId").isBlank()) {
+            Long newCatId = Long.valueOf(body.get("categoryId").trim());
+            Category newCat = categoryRepository.findById(newCatId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category not found"));
+            if (newCat.getDepartment() != null && !newCat.getDepartment().equalsIgnoreCase(newDepartment)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        String.format("Category '%s' belongs to %s and cannot be paired with department %s",
+                                newCat.getName(), newCat.getDepartment(), newDepartment));
+            }
+            ticket.setCategory(newCat);
+        } else if (!sameDepartment(previousDepartment, newDepartment)) {
+            if (ticket.getCategory() != null && ticket.getCategory().getDepartment() != null
+                    && !ticket.getCategory().getDepartment().equalsIgnoreCase(newDepartment)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        String.format("Ticket category '%s' belongs to %s and cannot be paired with new department %s. Please specify a valid category for %s",
+                                ticket.getCategory().getName(), ticket.getCategory().getDepartment(), newDepartment, newDepartment));
+            }
+        }
 
         // If rerouting removes assigned agent (department changes), do NOT leave IN_PROGRESS with no agent
         if (!sameDepartment(previousDepartment, newDepartment) && ticket.getAssignedTo() != null) {
@@ -564,6 +638,12 @@ public class TicketController {
                     (ticket.getDepartment() != null && !sameDepartment(ticket.getDepartment(), currentUser.getDepartment()))) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                         "Access denied: You are not authorized to view this ticket's history");
+            }
+            if (hasRole(auth, "SUPPORT_AGENT")) {
+                if (ticket.getAssignedTo() != null && !ticket.getAssignedTo().getId().equals(currentUser.getId())) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                            "Access denied: Support agents cannot view history for tickets assigned to other agents");
+                }
             }
         }
 
