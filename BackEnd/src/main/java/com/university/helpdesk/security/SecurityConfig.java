@@ -25,15 +25,15 @@ import org.springframework.http.MediaType;
 import java.util.Arrays;
 import java.util.List;
 
-@Configuration
-@EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)
+@Configuration// Identifies class as a Spring configuration file defining bean components
+@EnableWebSecurity// Enables Spring Security web filters and integrates custom security rules
+@EnableMethodSecurity(prePostEnabled = true)// Activates method-level security processing for annotations like @PreAuthorize
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Value("${app.cors.allowed-origin:http://localhost:5173}")
+    @Value("${app.cors.allowed-origin:http://localhost:5173}")// Injects property value from application configuration with fallback default
     private String allowedOrigin;
 
     public SecurityConfig(CustomUserDetailsService userDetailsService, JwtAuthenticationFilter jwtAuthenticationFilter) {
@@ -41,12 +41,12 @@ public class SecurityConfig {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
-    @Bean
+    @Bean// Exposes BCrypt password hasher as an injectable Spring bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    @Bean
+    @Bean// Registers database-driven authentication provider linking UserDetails and password encoder
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
@@ -54,12 +54,12 @@ public class SecurityConfig {
         return authProvider;
     }
 
-    @Bean
+    @Bean// Exposes central AuthenticationManager for credential verification workflows
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
         return authConfig.getAuthenticationManager();
     }
 
-    @Bean
+    @Bean// Defines CORS policies allowing cross-origin requests from the React client
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // Use configurable origin from FRONTEND_ORIGIN env var instead of wildcard
@@ -72,7 +72,7 @@ public class SecurityConfig {
         return source;
     }
 
-    @Bean
+    @Bean// Defines HTTP security pipeline, stateless session policy, and request routing permissions
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))

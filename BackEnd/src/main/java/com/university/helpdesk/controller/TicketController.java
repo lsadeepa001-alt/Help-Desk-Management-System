@@ -24,8 +24,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-@RestController
-@RequestMapping("/tickets")
+@RestController// Registers class as a REST controller; serializes return values directly to JSON
+@RequestMapping("/tickets")// Maps all incoming requests starting with /tickets to this controller
 public class TicketController {
 
     private final TicketRepository ticketRepository;
@@ -107,11 +107,12 @@ public class TicketController {
         return first != null && second != null && first.trim().equalsIgnoreCase(second.trim());
     }
 
-    // ─── GET ALL (Restricted to Staff, Team Leads, Admins) ───────────────────
-    @GetMapping
-    @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
+    // GET ALL (Restricted to Staff, Team Leads, Admins)
+    @GetMapping// Handles HTTP GET requests to fetch tickets collection
+    @PreAuthorize("hasAnyRole('STUDENT', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
+    // Evaluates role authorization before execution; rejects unauthorized roles with 403 Forbidden
     public List<Ticket> getAllTickets(
-            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long categoryId,// Binds optional HTTP query parameters from the URL to method variables
             @RequestParam(required = false) String dateFrom,
             @RequestParam(required = false) String dateTo,
             Authentication auth) {
@@ -126,7 +127,11 @@ public class TicketController {
 
         if (hasRole(auth, "SYSTEM_ADMINISTRATOR")) {
             // Admin sees all tickets
-        } else {
+        }else if (hasRole(auth, "STUDENT") || hasRole(auth, "LECTURER")) {
+            // Student sees only their own tickets
+            stream = stream.filter(ticket -> isCreator(ticket, currentUser));
+        }
+        else {
             stream = stream
                     .filter(ticket -> ticket.getStatus() != Status.CANCELLED && ticket.getStatus() != Status.REJECTED)
                     .filter(ticket -> sameDepartment(ticket.getDepartment(), currentUser.getDepartment()))
@@ -149,8 +154,8 @@ public class TicketController {
         return stream.toList();
     }
 
-    // ─── GET MY TICKETS (All authenticated users for their own tickets) ──────
-    @GetMapping("/my-tickets")
+    // GET MY TICKETS (All authenticated users for their own tickets)
+    @GetMapping("/my-tickets")// Maps GET requests for personal tickets submitted by the authenticated user
     @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'KNOWLEDGE_MANAGER', 'MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<List<Ticket>> getMyTickets(
             @RequestParam(required = false) Long categoryId,
@@ -181,10 +186,10 @@ public class TicketController {
         return ResponseEntity.ok(stream.toList());
     }
 
-    // ─── GET BY ID (Enforces Ownership for End-Users and Department for Staff) ─
-    @GetMapping("/{id}")
+    // GET BY ID (Enforces Ownership for End-Users and Department for Staff)
+    @GetMapping("/{id}")// Maps GET requests with dynamic ID path variable to retrieve a specific ticket
     @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<Ticket> getTicketById(@PathVariable Long id, Authentication auth) {
+    public ResponseEntity<Ticket> getTicketById(@PathVariable Long id, Authentication auth) {// @pathVariable: Extracts the resource identifier directly from the URL path
         Ticket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found"));
         User currentUser = getCurrentUser(auth);
@@ -209,17 +214,17 @@ public class TicketController {
         return ResponseEntity.ok(ticket);
     }
 
-    // ─── CREATE TICKET (Direct Department Routing) ───────────────────────────
-    @PostMapping
+    // CREATE TICKET (Direct Department Routing)
+    @PostMapping// Handles HTTP POST requests for creating a new ticket record
     @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<Ticket> createTicket(@RequestBody Ticket ticket, Authentication auth) {
+    public ResponseEntity<Ticket> createTicket(@RequestBody Ticket ticket, Authentication auth) {// @RequestBody :Deserializes the incoming JSON request payload into a Java object
         User currentUser = getCurrentUser(auth);
         Ticket savedTicket = ticketService.createTicket(ticket, currentUser);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedTicket);
     }
 
-    // ─── EDIT TICKET (Creator only, while status is OPEN) ────────────────────
-    @PutMapping("/{id}")
+    // EDIT TICKET (Creator only, while status is OPEN)
+    @PutMapping("/{id}")// Handles HTTP PUT requests to update an existing ticket identified by ID
     @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Ticket> updateTicket(@PathVariable Long id,
                                                @RequestBody Map<String, Object> body,
@@ -315,8 +320,8 @@ public class TicketController {
         return ResponseEntity.ok(saved);
     }
 
-    // ─── CANCEL / REJECT TICKET (Soft Cancellation) ─────────────────────────
-    @DeleteMapping("/{id}")
+    // CANCEL / REJECT TICKET (Soft Cancellation)
+    @DeleteMapping("/{id}")// Handles HTTP DELETE requests for soft cancelling/rejecting a ticket
     @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<?> deleteOrCancelTicket(@PathVariable Long id, Authentication auth) {
         User currentUser = getCurrentUser(auth);
@@ -326,8 +331,8 @@ public class TicketController {
         return ResponseEntity.ok(saved);
     }
 
-    // ─── PERMANENT DELETE (Restricted strictly to System Administrator) ──────
-    @DeleteMapping("/{id}/permanent")
+    // PERMANENT DELETE (Restricted strictly to System Administrator)
+    @DeleteMapping("/{id}/permanent")// Maps administrative requests to execute irreversible hard deletion from database
     @PreAuthorize("hasRole('SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Void> permanentlyDeleteTicket(@PathVariable Long id, Authentication auth) {
         Ticket ticket = ticketRepository.findById(id)
@@ -439,7 +444,7 @@ public class TicketController {
         return ResponseEntity.ok(saved);
     }
 
-    // ─── CONFIRM RESOLUTION (Ticket Creator confirms resolution -> CLOSED) ───
+    // CONFIRM RESOLUTION (Ticket Creator confirms resolution -> CLOSED)
     @PutMapping("/{id}/confirm")
     @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Ticket> confirmResolution(@PathVariable Long id, Authentication auth) {
@@ -449,7 +454,7 @@ public class TicketController {
         return ResponseEntity.ok(ticketService.confirmResolution(id, currentUser, isAdmin));
     }
 
-    // ─── REOPEN TICKET (Ticket Creator reopens -> REOPENED with reason) ───────
+    // REOPEN TICKET (Ticket Creator reopens -> REOPENED with reason)
     @PutMapping("/{id}/reopen")
     @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Ticket> reopenTicket(@PathVariable Long id,
@@ -462,7 +467,7 @@ public class TicketController {
         return ResponseEntity.ok(ticketService.reopenTicket(id, reason, currentUser, isAdmin));
     }
 
-    // ─── UPDATE STATUS (Agents, Team Leads, Admins) ──────────────────────────
+    // UPDATE STATUS (Agents, Team Leads, Admins)
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Ticket> updateStatus(@PathVariable Long id,
@@ -494,7 +499,7 @@ public class TicketController {
         return ResponseEntity.ok(updated);
     }
 
-    // ─── CLAIM TICKET (Support Agent self-assigns an unassigned ticket) ───────
+    // CLAIM TICKET (Support Agent self-assigns an unassigned ticket)
     @PutMapping("/{id}/claim")
     @PreAuthorize("hasAnyRole('SUPPORT_AGENT', 'TEAM_LEAD')")
     public ResponseEntity<Ticket> claimTicket(@PathVariable Long id, Authentication auth) {
@@ -502,7 +507,7 @@ public class TicketController {
         return ResponseEntity.ok(ticketService.claimTicket(id, currentUser));
     }
 
-    // ─── ASSIGN / REASSIGN AGENT (Department Team Lead & Administrator) ────
+    // ASSIGN / REASSIGN AGENT (Department Team Lead & Administrator)
     @PutMapping("/{id}/assign")
     @PreAuthorize("hasAnyRole('TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<Ticket> assignTicket(@PathVariable Long id,
@@ -549,7 +554,7 @@ public class TicketController {
         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Unauthorized role for comments");
     }
 
-    // ─── POST COMMENT (Forces isInternal=false for End-Users) ─────────────────
+    // POST COMMENT (Forces isInternal=false for End-Users)
     @PostMapping("/{id}/comments")
     @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<TicketComment> addComment(@PathVariable Long id,
@@ -604,7 +609,7 @@ public class TicketController {
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
-    // ─── GET COMMENTS (Hides Internal Notes from End-Users) ───────────────────
+    // GET COMMENTS (Hides Internal Notes from End-Users)
     @GetMapping("/{id}/comments")
     @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<List<TicketComment>> getComments(@PathVariable Long id, Authentication auth) {
@@ -622,7 +627,7 @@ public class TicketController {
         return ResponseEntity.ok(comments);
     }
 
-    // ─── GET ASSIGNMENT HISTORY (Same access rules as ticket read) ────────────
+    // GET ASSIGNMENT HISTORY (Same access rules as ticket read)
     @GetMapping("/{id}/assignment-history")
     @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'SUPPORT_AGENT', 'TEAM_LEAD', 'SYSTEM_ADMINISTRATOR')")
     public ResponseEntity<List<AssignmentHistoryDTO>> getAssignmentHistory(@PathVariable Long id,
@@ -656,7 +661,7 @@ public class TicketController {
         return ResponseEntity.ok(history);
     }
 
-    // ─── GET CATEGORIES ──────────────────────────────────────────────────────
+    // GET CATEGORIES
     @GetMapping("/categories")
     public ResponseEntity<List<Category>> getCategories() {
         return ResponseEntity.ok(categoryRepository.findAll());

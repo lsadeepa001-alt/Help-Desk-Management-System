@@ -61,11 +61,13 @@ class TicketWorkflowSecurityTest {
         String leadToken = bearerToken(lead);
         String agentToken = bearerToken(agent);
 
-        // 1. Student creates ticket directly selecting IT Department
+        Category itCat = categoryRepository.findByName("Network & Wi-Fi").orElseThrow();
+
+        // 1. Student creates ticket directly selecting IT Department with valid IT category
         MvcResult createResult = mockMvc.perform(post("/tickets")
                         .header("Authorization", studentToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"title\":\"Wi-Fi disconnects in Library\",\"description\":\"Connection drops every 5 minutes\",\"priority\":\"HIGH\",\"department\":\"IT\"}"))
+                        .content("{\"title\":\"Wi-Fi disconnects in Library\",\"description\":\"Connection drops every 5 minutes\",\"priority\":\"HIGH\",\"department\":\"IT\",\"categoryId\":" + itCat.getId() + "}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("OPEN"))
                 .andExpect(jsonPath("$.department").value("IT"))
@@ -154,14 +156,136 @@ class TicketWorkflowSecurityTest {
                         .content("{\"title\":\"Invalid dept\",\"description\":\"Should fail\",\"department\":\"Finance\"}"))
                 .andExpect(status().isBadRequest());
 
-        // Valid department
+        // Valid department with valid category
+        Category secCat = categoryRepository.findByName("Campus Access & Keycard").orElseThrow();
         mockMvc.perform(post("/tickets")
                         .header("Authorization", token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"title\":\"Valid dept\",\"description\":\"Should succeed\",\"department\":\"Security\"}"))
+                        .content("{\"title\":\"Valid dept\",\"description\":\"Should succeed\",\"department\":\"Security\",\"categoryId\":" + secCat.getId() + "}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.department").value("Security"))
                 .andExpect(jsonPath("$.status").value("OPEN"));
+    }
+
+    @Test
+    @DisplayName("Ticket submission enforces category requirement and category-department matching")
+    void ticketSubmissionEnforcesCategoryAndDepartmentMatching() throws Exception {
+        User student = createUser(Role.STUDENT, null);
+        String token = bearerToken(student);
+
+        Category itCat = categoryRepository.findByName("Network & Wi-Fi").orElseThrow();
+        Category maintCat = categoryRepository.findByName("Air Conditioning & HVAC").orElseThrow();
+
+        // 1. Missing category returns 400
+        mockMvc.perform(post("/tickets")
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"No category\",\"description\":\"Should fail\",\"department\":\"IT\"}"))
+                .andExpect(status().isBadRequest());
+
+        // 2. Mismatched category (IT ticket with Maintenance category) returns 400
+        mockMvc.perform(post("/tickets")
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Mismatched category\",\"description\":\"Should fail\",\"department\":\"IT\",\"categoryId\":" + maintCat.getId() + "}"))
+                .andExpect(status().isBadRequest());
+
+        // 3. Matched category succeeds
+        mockMvc.perform(post("/tickets")
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Matched category\",\"description\":\"Should pass\",\"department\":\"IT\",\"categoryId\":" + itCat.getId() + "}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.category.id").value(itCat.getId()));
+    }
+
+    @Test
+    @DisplayName("Ticket creation validates required fields and restricts requester priority")
+    void ticketCreationValidatesFieldsAndRequesterPriority() throws Exception {
+        User student = createUser(Role.STUDENT, null);
+        String token = bearerToken(student);
+        Category itCat = categoryRepository.findByName("Network & Wi-Fi").orElseThrow();
+
+        // 1. Blank title rejected with 400
+        mockMvc.perform(post("/tickets")
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"   \",\"description\":\"Some valid description\",\"department\":\"IT\",\"categoryId\":" + itCat.getId() + "}"))
+                .andExpect(status().isBadRequest());
+
+        // 2. Blank description rejected with 400
+        mockMvc.perform(post("/tickets")
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Valid title\",\"description\":\"   \",\"department\":\"IT\",\"categoryId\":" + itCat.getId() + "}"))
+                .andExpect(status().isBadRequest());
+
+        // 3. Requester cannot create ticket with URGENT priority
+        mockMvc.perform(post("/tickets")
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Valid title\",\"description\":\"Valid description\",\"priority\":\"URGENT\",\"department\":\"IT\",\"categoryId\":" + itCat.getId() + "}"))
+                .andExpect(status().isBadRequest());
+
+        // 4. Requester cannot create ticket with CRITICAL priority
+        mockMvc.perform(post("/tickets")
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Valid title\",\"description\":\"Valid description\",\"priority\":\"CRITICAL\",\"department\":\"IT\",\"categoryId\":" + itCat.getId() + "}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Support Agent ticket isolation: Cannot view tickets or query status of tickets assigned to other agents")
+    void supportAgentTicketIsolationRules() throws Exception {
+        User student = createUser(Role.STUDENT, null);
+        User agentA = createUser(Role.SUPPORT_AGENT, "IT");
+        User agentB = createUser(Role.SUPPORT_AGENT, "IT");
+
+        String agentAToken = bearerToken(agentA);
+
+        Category itCat = categoryRepository.findByName("Network & Wi-Fi").orElseThrow();
+
+        // Create an unassigned IT ticket
+        Ticket unassignedTicket = createTicket(student, Status.OPEN, "IT");
+        unassignedTicket.setCategory(itCat);
+        ticketRepository.save(unassignedTicket);
+
+        // Create a ticket assigned to Agent B
+        Ticket assignedToB = createTicket(student, Status.IN_PROGRESS, "IT");
+        assignedToB.setCategory(itCat);
+        assignedToB.setAssignedTo(agentB);
+        ticketRepository.save(assignedToB);
+
+        // 1. Agent A can view unassigned ticket in IT department
+        mockMvc.perform(get("/tickets/" + unassignedTicket.getId())
+                        .header("Authorization", agentAToken))
+                .andExpect(status().isOk());
+
+        // 2. Agent A can view ticket assigned to Agent A
+        Ticket assignedToA = createTicket(student, Status.IN_PROGRESS, "IT");
+        assignedToA.setCategory(itCat);
+        assignedToA.setAssignedTo(agentA);
+        ticketRepository.save(assignedToA);
+
+        mockMvc.perform(get("/tickets/" + assignedToA.getId())
+                        .header("Authorization", agentAToken))
+                .andExpect(status().isOk());
+
+        // 3. Agent A CANNOT view ticket assigned to Agent B (403 Forbidden)
+        mockMvc.perform(get("/tickets/" + assignedToB.getId())
+                        .header("Authorization", agentAToken))
+                .andExpect(status().isForbidden());
+
+        // 4. Agent A CANNOT view assignment history for ticket assigned to Agent B (403 Forbidden)
+        mockMvc.perform(get("/tickets/" + assignedToB.getId() + "/assignment-history")
+                        .header("Authorization", agentAToken))
+                .andExpect(status().isForbidden());
+
+        // 5. Agent A CANNOT query chatbot status for ticket assigned to Agent B (403 Forbidden)
+        mockMvc.perform(get("/kb/chatbot/ticket-status/" + assignedToB.getTicketNumber())
+                        .header("Authorization", agentAToken))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -407,7 +531,7 @@ class TicketWorkflowSecurityTest {
 
     private Ticket createTicket(User creator, Status status, String department) {
         Ticket ticket = new Ticket();
-        ticket.setTicketNumber("TICK-WF-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10));
+        ticket.setTicketNumber("TICK-WF-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase());
         ticket.setTitle("Workflow security test");
         ticket.setDescription("Ticket created for workflow authorization testing.");
         ticket.setPriority(Priority.MEDIUM);

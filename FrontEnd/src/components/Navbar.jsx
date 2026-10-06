@@ -168,9 +168,9 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 hover:border-slate-700 transition focus:outline-none"
+                className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 hover:border-slate-700 transition focus:outline-none"
               >
-                <span className="w-7 h-7 rounded-lg bg-blue-600/30 border border-blue-500/30 text-blue-300 flex items-center justify-center text-xs font-bold">
+                <span className="w-8 h-8 rounded-full bg-blue-600/30 border border-blue-500/30 text-blue-300 flex items-center justify-center text-xs font-bold">
                   {(user?.fullName || user?.username || 'U')[0].toUpperCase()}
                 </span>
                 <span className="hidden sm:block text-xs font-medium text-slate-200 max-w-[120px] truncate">

@@ -95,33 +95,21 @@ export default function AnalyticsDashboard() {
         axios.get(`${API}/analytics/summary`),
         axios.get(`${API}/analytics/agent-performance`),
       ];
-      if (canViewSla) {
-        requests.push(axios.get(`${API}/analytics/sla-compliance`));
-      }
       if (canViewExecutiveAnalytics) {
-        requests.push(axios.get(`${API}/analytics/activity-summary`));
-        requests.push(axios.get(`${API}/analytics/activity-logs`));
         requests.push(axios.get(`${API}/analytics/insights`));
       }
       const results = await Promise.all(requests);
       setSummary(results[0].data);
       setAgentPerformance(results[1].data);
-      let idx = 2;
-      if (canViewSla) {
-        setSlaCompliance(results[idx]?.data);
-        idx++;
-      }
       if (canViewExecutiveAnalytics) {
-        setActivitySummary(results[idx]?.data);
-        setActivityLogs(results[idx + 1]?.data || []);
-        setInsights(results[idx + 2]?.data || []);
+        setInsights(results[2]?.data || []);
       }
     } catch {
       showToast('Failed to load analytics data.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [canViewSla, canViewExecutiveAnalytics, showToast]);
+  }, [canViewExecutiveAnalytics, showToast]);
 
   useEffect(() => {
     fetchAnalyticsData();
@@ -236,7 +224,7 @@ export default function AnalyticsDashboard() {
 
   return (
     <div className="space-y-8 animate-fade-in print:text-black print:bg-white print:p-0">
-      
+
       {/* ── Page Header & Action Buttons ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div>
@@ -277,7 +265,7 @@ export default function AnalyticsDashboard() {
 
       {/* ── Executive Summary KPI Grid ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
+
         {/* Total Volume */}
         <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl space-y-2 print:border-gray-300 print:bg-gray-50">
           <div className="flex items-center justify-between text-slate-400 print:text-gray-700">
@@ -416,120 +404,7 @@ export default function AnalyticsDashboard() {
         </div>
       </div>
 
-      {/* SLA Compliance Section (Managers & System Administrators) */}
-      {canViewSla && slaCompliance && (
-        <div className="space-y-6">
-          <div className="bg-slate-800/80 border border-slate-700/60 p-6 rounded-2xl shadow-xl space-y-5 print:border-gray-300 print:bg-gray-50">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700/60 pb-4">
-              <div>
-                <h3 className="font-bold text-base text-white flex items-center gap-2 print:text-black">
-                  <Clock className="w-5 h-5 text-sky-400" />
-                  <span>Service Level Agreement (SLA) Compliance</span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Resolution timeline compliance measured against configured priority thresholds.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <span className="text-xs text-slate-400 font-semibold">Overall SLA:</span>
-                <span className={`px-3 py-1 rounded-full text-xs font-black ${
-                  slaCompliance.compliancePercentage >= 90
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : slaCompliance.compliancePercentage >= 75
-                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                    : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                }`}>
-                  {slaCompliance.compliancePercentage}%
-                </span>
-              </div>
-            </div>
 
-            {/* SLA KPI Mini-Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-slate-900/60 border border-slate-700/50 p-4 rounded-xl space-y-1">
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Measured</span>
-                <div className="text-2xl font-black text-white">{slaCompliance.totalMeasuredTickets}</div>
-                <p className="text-[10px] text-slate-500">Active and resolved tickets (excluding cancelled)</p>
-              </div>
-              <div className="bg-slate-900/60 border border-slate-700/50 p-4 rounded-xl space-y-1">
-                <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Within SLA Target</span>
-                <div className="text-2xl font-black text-emerald-400">{slaCompliance.slaMetCount}</div>
-                <p className="text-[10px] text-slate-500">Resolved on time or within active target window</p>
-              </div>
-              <div className="bg-slate-900/60 border border-slate-700/50 p-4 rounded-xl space-y-1">
-                <span className="text-[10px] uppercase font-bold text-rose-400 tracking-wider">SLA Breached</span>
-                <div className="text-2xl font-black text-rose-400">{slaCompliance.slaBreachedCount}</div>
-                <p className="text-[10px] text-slate-500">Resolution elapsed time exceeded threshold</p>
-              </div>
-            </div>
-
-            {/* Per-Priority SLA Breakdown Table */}
-            {slaCompliance.perPriority && (
-              <div className="overflow-x-auto pt-2">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-900/80 text-slate-400 border-b border-slate-700/60 uppercase tracking-wider text-[10px]">
-                      <th className="py-2.5 px-3 font-bold">Priority</th>
-                      <th className="py-2.5 px-3 font-bold text-center">Configured Threshold</th>
-                      <th className="py-2.5 px-3 font-bold text-center">Measured Tickets</th>
-                      <th className="py-2.5 px-3 font-bold text-center">SLA Met</th>
-                      <th className="py-2.5 px-3 font-bold text-center">SLA Breached</th>
-                      <th className="py-2.5 px-3 font-bold text-center">Compliance</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-700/40 text-slate-200">
-                    {Object.entries(slaCompliance.perPriority).map(([prio, data]) => {
-                      const prioBadge = {
-                        CRITICAL: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
-                        URGENT: 'bg-red-500/20 text-red-300 border-red-500/40',
-                        HIGH: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-                        MEDIUM: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
-                        LOW: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-                      };
-                      return (
-                        <tr key={prio} className="hover:bg-slate-700/20 transition">
-                          <td className="py-2.5 px-3 font-bold">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] border ${prioBadge[prio] || 'bg-slate-700 text-slate-300'}`}>
-                              {prio}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-center text-slate-300 font-mono">
-                            {data.thresholdHours} hrs
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-bold">{data.total}</td>
-                          <td className="py-2.5 px-3 text-center font-bold text-emerald-400">{data.met}</td>
-                          <td className="py-2.5 px-3 text-center font-bold text-rose-400">{data.breached}</td>
-                          <td className="py-2.5 px-3 text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <span className="font-extrabold text-[11px]">
-                                {data.total > 0 ? `${data.compliancePercentage}%` : '—'}
-                              </span>
-                              {data.total > 0 && (
-                                <div className="w-16 bg-slate-900 rounded-full h-1.5 overflow-hidden">
-                                  <div
-                                    className={`h-1.5 rounded-full ${
-                                      data.compliancePercentage >= 90
-                                        ? 'bg-emerald-500'
-                                        : data.compliancePercentage >= 75
-                                        ? 'bg-amber-500'
-                                        : 'bg-rose-500'
-                                    }`}
-                                    style={{ width: `${data.compliancePercentage}%` }}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* ── Support Agent Leaderboard Table ── */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden print:border-gray-300">
@@ -599,137 +474,6 @@ export default function AnalyticsDashboard() {
         </div>
       </div>
 
-      {/* ── Operational Staff Activity Stream (Audit Trail) (Managers & Administrators) ── */}
-      {canViewExecutiveAnalytics && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden print:border-gray-300">
-          <div className="p-5 border-b border-slate-800 bg-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div>
-              <h3 className="font-bold text-white text-base flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-blue-400" />
-                <span>Operational Staff Activity Stream</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Audit trail tracking ticket claims, assignments, routing transitions, resolutions, and staff comments.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full text-xs font-bold">
-                {activitySummary?.totalActivities ?? activityLogs.length} Total Events
-              </span>
-            </div>
-          </div>
-
-          {/* Activity Filters */}
-          <div className="p-4 bg-slate-900/60 border-b border-slate-700/50 flex flex-wrap items-center gap-3 text-xs">
-            <div className="flex-1 min-w-[200px]">
-              <input
-                type="text"
-                value={activityFilter.search}
-                onChange={(e) => setActivityFilter({ ...activityFilter, search: e.target.value })}
-                placeholder="Search staff, ticket #, or details..."
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <select
-                value={activityFilter.action}
-                onChange={(e) => setActivityFilter({ ...activityFilter, action: e.target.value })}
-                className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:outline-none focus:border-indigo-500"
-              >
-                <option value="">All Action Types</option>
-                {Object.keys(actionLabels).map((key) => (
-                  <option key={key} value={key}>{actionLabels[key]}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <select
-                value={activityFilter.department}
-                onChange={(e) => setActivityFilter({ ...activityFilter, department: e.target.value })}
-                className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 focus:outline-none focus:border-indigo-500"
-              >
-                <option value="">All Departments</option>
-                <option value="IT">IT</option>
-                <option value="Maintenance">Maintenance</option>
-                <option value="Security">Security</option>
-              </select>
-            </div>
-            {(activityFilter.action || activityFilter.department || activityFilter.search) && (
-              <button
-                onClick={() => setActivityFilter({ action: '', department: '', search: '' })}
-                className="text-indigo-400 hover:text-indigo-300 font-semibold"
-              >
-                Clear Filters
-              </button>
-            )}
-          </div>
-
-          {/* Activity Logs Table */}
-          <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead className="sticky top-0 bg-slate-900 text-slate-400 border-b border-slate-700/60 uppercase tracking-wider text-[10px] z-10">
-                <tr>
-                  <th className="py-2.5 px-4 font-bold">Timestamp</th>
-                  <th className="py-2.5 px-4 font-bold">Actor</th>
-                  <th className="py-2.5 px-4 font-bold">Action</th>
-                  <th className="py-2.5 px-4 font-bold">Ticket Reference</th>
-                  <th className="py-2.5 px-4 font-bold">Action Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700/40 text-slate-200">
-                {filteredLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="py-8 text-center text-slate-500">
-                      No operational activities recorded matching the selected criteria.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredLogs.map((log) => {
-                    const formattedDate = log.createdAt
-                      ? new Date(log.createdAt).toLocaleString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : '—';
-
-                    return (
-                      <tr key={log.id} className="hover:bg-slate-700/20 transition">
-                        <td className="py-2.5 px-4 text-slate-400 whitespace-nowrap font-mono text-[11px]">
-                          {formattedDate}
-                        </td>
-                        <td className="py-2.5 px-4 whitespace-nowrap">
-                          <span className="font-semibold text-white block">{log.actorName || 'System'}</span>
-                          <span className="text-[10px] text-slate-400">
-                            {log.actorRole?.replace('_', ' ') || 'Staff'} {log.actorDepartment ? `• ${log.actorDepartment}` : ''}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-4 whitespace-nowrap">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${actionColors[log.action] || 'bg-slate-700 text-slate-300'}`}>
-                            {actionLabels[log.action] || log.action}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-4 whitespace-nowrap">
-                          <span className="font-mono text-indigo-400 font-semibold">{log.ticketNumber || `Ticket #${log.ticketId}`}</span>
-                          {log.ticketTitle && (
-                            <span className="block text-[11px] text-slate-300 max-w-[180px] truncate" title={log.ticketTitle}>
-                              {log.ticketTitle}
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-4 text-slate-300 max-w-[320px] truncate" title={log.details}>
-                          {log.details || '—'}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {/* ── Management Strategic Insights & Commentary Section ── */}
       {canViewExecutiveAnalytics && (

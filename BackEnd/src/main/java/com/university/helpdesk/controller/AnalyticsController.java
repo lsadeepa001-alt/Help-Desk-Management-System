@@ -31,6 +31,7 @@ public class AnalyticsController {
     private final AnalyticsInsightService analyticsInsightService;
     private final UserRepository userRepository;
 
+
     public AnalyticsController(AnalyticsService analyticsService,
                                AgentActivityLogService agentActivityLogService,
                                AnalyticsInsightService analyticsInsightService,
@@ -63,13 +64,6 @@ public class AnalyticsController {
         return ResponseEntity.ok(analyticsService.getAgentPerformance());
     }
 
-    // ─── GET SLA COMPLIANCE (Managers & Admins) ────────────────────────────────
-    @GetMapping("/sla-compliance")
-    @PreAuthorize("hasAnyRole('MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<Map<String, Object>> getSlaCompliance() {
-        return ResponseEntity.ok(analyticsService.getSlaCompliance());
-    }
-
     // ─── EXPORT CSV REPORT (Managers & Admins only) ───────────────────────────
     @GetMapping(value = "/export/csv", produces = "text/csv")
     @PreAuthorize("hasAnyRole('MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
@@ -82,41 +76,7 @@ public class AnalyticsController {
                 .body(csvData);
     }
 
-    // ─── GET AGENT ACTIVITY LOGS (Managers & Admins) ─────────────────────────
-    @GetMapping("/activity-logs")
-    @PreAuthorize("hasAnyRole('MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<List<AgentActivityLogDTO>> getActivityLogs(
-            @RequestParam(required = false) Long agentId,
-            @RequestParam(required = false) String department,
-            @RequestParam(required = false) String action,
-            @RequestParam(required = false) String dateFrom,
-            @RequestParam(required = false) String dateTo) {
-        LocalDateTime from = dateFrom != null && !dateFrom.isBlank()
-                ? LocalDate.parse(dateFrom).atStartOfDay() : null;
-        LocalDateTime to = dateTo != null && !dateTo.isBlank()
-                ? LocalDate.parse(dateTo).atTime(23, 59, 59) : null;
-        AgentActivityAction act = null;
-        if (action != null && !action.isBlank()) {
-            try {
-                act = AgentActivityAction.valueOf(action.trim().toUpperCase());
-            } catch (IllegalArgumentException ignored) {}
-        }
-        return ResponseEntity.ok(agentActivityLogService.getActivityLogs(agentId, department, act, from, to));
-    }
 
-    // ─── GET AGENT ACTIVITY SUMMARY (Managers & Admins) ──────────────────────
-    @GetMapping("/activity-summary")
-    @PreAuthorize("hasAnyRole('MANAGER_EXECUTIVE', 'SYSTEM_ADMINISTRATOR')")
-    public ResponseEntity<Map<String, Object>> getActivitySummary(
-            @RequestParam(required = false) String department,
-            @RequestParam(required = false) String dateFrom,
-            @RequestParam(required = false) String dateTo) {
-        LocalDateTime from = dateFrom != null && !dateFrom.isBlank()
-                ? LocalDate.parse(dateFrom).atStartOfDay() : null;
-        LocalDateTime to = dateTo != null && !dateTo.isBlank()
-                ? LocalDate.parse(dateTo).atTime(23, 59, 59) : null;
-        return ResponseEntity.ok(agentActivityLogService.getActivitySummary(department, from, to));
-    }
 
     // ─── GET INSIGHTS (Managers & Admins) ────────────────────────────────────
     @GetMapping("/insights")
